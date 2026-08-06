@@ -1,0 +1,52 @@
+/* ==========================================================
+   PaperBuddy Design System
+   Colors
+   ========================================================== */
+
+/* Brand */
+$primary: #2563eb;
+$primary-dark: #1d4ed8;
+$secondary: #4f46e5;
+
+/* Backgrounds */
+$background: #f8fafc;
+$surface: #ffffff;
+$surface-alt: #f1f5f9;
+
+/* Text */
+$text-primary: #0f172a;
+$text-secondary: #64748b;
+$text-muted: #94a3b8;
+
+/* Borders */
+$border: #e2e8f0;
+$border-light: #f1f5f9;
+
+/* Status */
+$success: #22c55e;
+$warning: #f59e0b;
+$danger: #ef4444;
+$info: #0ea5e9;
+
+/* Hover */
+$hover: #eff6ff;
+
+/* Shadows */
+$shadow-color: rgba(15, 23, 42, 0.08);
+
+/* Glass */
+$glass-bg: rgba(255, 255, 255, 0.75);
+$glass-border: rgba(255, 255, 255, 0.35);
+
+/* Gradients */
+$primary-gradient: linear-gradient(
+	135deg,
+	#2563eb 0%,
+	#4f46e5 100%
+);
+
+$hero-gradient: linear-gradient(
+	180deg,
+	#ffffff 0%,
+	#f8fafc 100%
+);

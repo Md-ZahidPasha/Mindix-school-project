@@ -1,0 +1,136 @@
+/* ==========================================================
+   PaperBuddy Global Styles
+   ========================================================== */
+
+@use './colors' as *;
+@use './variables' as *;
+@use './typography' as *;
+@use './mixins' as *;
+
+/* ==========================================
+   Google Font
+========================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+/* ==========================================
+   Reset
+========================================== */
+
+*,
+*::before,
+*::after {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+/* ==========================================
+   HTML
+========================================== */
+
+html{
+
+	scroll-behavior:smooth;
+
+	scroll-padding-top:90px;
+
+}
+/* ==========================================
+   Body
+========================================== */
+
+body {
+	font-family: $font-family;
+	background: $background;
+	color: $text-primary;
+	font-size: $fs-md;
+	line-height: $lh-normal;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	min-height: 100vh;
+}
+
+/* ==========================================
+   Images
+========================================== */
+
+img {
+	display: block;
+	max-width: 100%;
+}
+
+/* ==========================================
+   Links
+========================================== */
+
+a {
+	color: inherit;
+	text-decoration: none;
+}
+
+/* ==========================================
+   Buttons
+========================================== */
+
+button {
+	font: inherit;
+}
+
+/* ==========================================
+   Inputs
+========================================== */
+
+input,
+textarea,
+select {
+	font: inherit;
+}
+
+/* ==========================================
+   Lists
+========================================== */
+
+ul,
+ol {
+	list-style: none;
+}
+
+/* ==========================================
+   Container Utility
+========================================== */
+
+.container {
+	width: min($container-width, calc(100% - 2 * $container-padding));
+	margin-inline: auto;
+}
+
+/* ==========================================
+   Selection
+========================================== */
+
+::selection {
+	background: $primary;
+	color: white;
+}
+
+/* ==========================================
+   Scrollbar
+========================================== */
+
+::-webkit-scrollbar {
+	width: 10px;
+}
+
+::-webkit-scrollbar-track {
+	background: $surface-alt;
+}
+
+::-webkit-scrollbar-thumb {
+	background: $primary;
+	border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: $primary-dark;
+}

@@ -1,0 +1,109 @@
+/* ==========================================================
+   PaperBuddy Design System
+   Mixins
+   ========================================================== */
+
+@use './variables' as *;
+@use './colors' as *;
+
+/* ==========================================
+   Flex Utilities
+========================================== */
+
+@mixin flex-center {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+@mixin flex-between {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+@mixin flex-column($gap: 0) {
+	display: flex;
+	flex-direction: column;
+	gap: $gap;
+}
+
+/* ==========================================
+   Container
+========================================== */
+
+@mixin container {
+	width: min($container-width, calc(100% - 2 * $container-padding));
+	margin-inline: auto;
+}
+
+/* ==========================================
+   Glass Card
+========================================== */
+
+@mixin glass {
+	background: $glass-bg;
+	backdrop-filter: blur(18px);
+	-webkit-backdrop-filter: blur(18px);
+	border: 1px solid $glass-border;
+}
+
+/* ==========================================
+   Card
+========================================== */
+
+@mixin card {
+	background: $surface;
+	border: 1px solid $border;
+	border-radius: $radius-xl;
+	padding: $card-padding;
+	box-shadow: $shadow-md;
+}
+
+/* ==========================================
+   Hover Animation
+========================================== */
+
+@mixin hover-lift {
+	transition: transform $transition-normal,
+				box-shadow $transition-normal;
+
+	&:hover {
+		transform: translateY(-4px);
+		box-shadow: $shadow-lg;
+	}
+}
+
+/* ==========================================
+   Button Reset
+========================================== */
+
+@mixin button-reset {
+	border: none;
+	outline: none;
+	background: transparent;
+	cursor: pointer;
+	font: inherit;
+}
+
+/* ==========================================
+   Responsive Breakpoints
+========================================== */
+
+@mixin mobile {
+	@media (max-width: 640px) {
+		@content;
+	}
+}
+
+@mixin tablet {
+	@media (max-width: 992px) {
+		@content;
+	}
+}
+
+@mixin desktop {
+	@media (min-width: 993px) {
+		@content;
+	}
+}
