@@ -1,14 +1,14 @@
 import uuid
 
-from sqlalchemy import Column, String, DateTime, ForeignKey
+from sqlalchemy import Column, DateTime, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
 from app.database.connection import Base
 
 
-class User(Base):
-    __tablename__ = "users"
+class Institution(Base):
+    __tablename__ = "institutions"
 
     id = Column(
         UUID(as_uuid=True),
@@ -16,21 +16,19 @@ class User(Base):
         default=uuid.uuid4
     )
 
-    institution_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("institutions.id"),
+    institution_name = Column(
+        String,
         nullable=False
     )
 
-    full_name = Column(
+    institution_type = Column(
         String,
         nullable=False
     )
 
     email = Column(
         String,
-        unique=True,
-        nullable=False
+        nullable=True
     )
 
     phone = Column(
@@ -38,12 +36,17 @@ class User(Base):
         nullable=True
     )
 
-    password_hash = Column(
+    address = Column(
         String,
-        nullable=False
+        nullable=True
     )
 
-    role = Column(
+    logo = Column(
+        String,
+        nullable=True
+    )
+
+    password_hash = Column(
         String,
         nullable=False
     )
