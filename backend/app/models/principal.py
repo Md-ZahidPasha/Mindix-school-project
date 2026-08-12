@@ -1,14 +1,14 @@
 import uuid
 
-from sqlalchemy import Column, String, Date, DateTime, ForeignKey
+from sqlalchemy import Column, String, Date, DateTime, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
 from app.database.connection import Base
 
 
-class Student(Base):
-    __tablename__ = "students"
+class Principal(Base):
+    __tablename__ = "principals"
 
     id = Column(
         UUID(as_uuid=True),
@@ -19,30 +19,23 @@ class Student(Base):
     user_id = Column(
         UUID(as_uuid=True),
         ForeignKey("users.id"),
-        nullable=False
+        nullable=False,
+        unique=True
     )
 
-    class_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("classes.id"),
-        nullable=True
-    )
-
-    roll_number = Column(
+    principal_id = Column(
         String,
         unique=True,
         nullable=False
     )
 
-    created_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
+    qualification = Column(
+        String,
         nullable=True
     )
 
-    admission_number = Column(
-        String,
-        unique=True,
+    experience_years = Column(
+        Integer,
         nullable=True
     )
 
@@ -56,15 +49,21 @@ class Student(Base):
         nullable=True
     )
 
+    institution_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("institutions.id"),
+        nullable=False
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False
+    )
+
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
-        nullable=True
-    )
-
-    institution_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("institutions.id"),
-        nullable=True
+        nullable=False
     )

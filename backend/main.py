@@ -5,6 +5,10 @@ from app.api.health import router as health_router
 from app.api.institution import router as institution_router
 from app.api.auth import router as auth_router
 from app.api.dashboard import router as dashboard_router
+from app.api.students import router as students_router
+from app.api.principal import router as principal_router
+from app.api.documents import router as documents_router
+
 
 app = FastAPI(
     title="PaperBuddy API",
@@ -12,19 +16,36 @@ app = FastAPI(
     version="1.0.0"
 )
 
+
+# CORS Configuration
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Later restrict this to your frontend URL
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=[
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE",
+        "OPTIONS",
+    ],
     allow_headers=["*"],
 )
 
+
 # Routers
+
 app.include_router(health_router)
 app.include_router(institution_router)
 app.include_router(auth_router)
 app.include_router(dashboard_router)
+app.include_router(students_router)
+app.include_router(principal_router)
+app.include_router(documents_router)
 
 
 @app.get("/")
