@@ -19,7 +19,7 @@
 			</div>
 		</header>
 
-		<AttendanceTypeSelector />
+		<AttendanceTypeSelector bind:selectedType />
 
 		<div class="attendance-content">
 			{#if selectedType === 'students'}

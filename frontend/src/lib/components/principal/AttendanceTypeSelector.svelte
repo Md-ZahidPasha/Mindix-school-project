@@ -1,149 +1,228 @@
 <script lang="ts">
-	let selectedType = $state<'students' | 'teachers' | 'employees'>('students');
+    import {
+        Users,
+        GraduationCap,
+        BriefcaseBusiness,
+        Check
+    } from '@lucide/svelte';
 
-	const attendanceTypes = [
-		{
-			id: 'students',
-			label: 'Students',
-			icon: '♧'
-		},
-		{
-			id: 'teachers',
-			label: 'Teachers',
-			icon: '♙'
-		},
-		{
-			id: 'employees',
-			label: 'Employees / Staff',
-			icon: '▣'
-		}
-	];
+    type AttendanceType = 'students' | 'teachers' | 'employees';
 
-	function selectType(type: 'students' | 'teachers' | 'employees') {
-		selectedType = type;
-	}
+    let {
+        selectedType = $bindable<AttendanceType>()
+    } = $props<{
+        selectedType: AttendanceType;
+    }>();
 </script>
 
-<section class="type-selector">
-	<div class="section-heading">
-		<h2>Attendance</h2>
-		<p>Select whose attendance you want to view.</p>
-	</div>
 
-	<div class="type-grid">
-		{#each attendanceTypes as type}
-			<button
-				type="button"
-				class:active={selectedType === type.id}
-				class="type-card"
-				onclick={() => selectType(type.id as 'students' | 'teachers' | 'employees')}
-			>
-				<span class="type-icon">{type.icon}</span>
+<div class="selector">
 
-				<span class="type-label">{type.label}</span>
+    <!-- STUDENTS -->
 
-				{#if selectedType === type.id}
-					<span class="selected-indicator">✓</span>
-				{/if}
-			</button>
-		{/each}
-	</div>
-</section>
+    <button
+        type="button"
+        class:active={selectedType === 'students'}
+        class="type-card"
+        onclick={() => selectedType = 'students'}
+    >
 
-<style>
-	.type-selector {
-		margin-top: 24px;
-	}
+        <div class="icon-box">
+            <Users size={20} />
+        </div>
 
-	.section-heading {
-		margin-bottom: 14px;
-	}
+        <span>Students</span>
 
-	.section-heading h2 {
-		margin: 0;
-		color: #14213d;
-		font-size: 20px;
-	}
+        {#if selectedType === 'students'}
+            <div class="check">
+                <Check size={15} />
+            </div>
+        {/if}
 
-	.section-heading p {
-		margin: 5px 0 0;
-		color: #64748b;
-		font-size: 13px;
-	}
+    </button>
 
-	.type-grid {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 16px;
-	}
 
-	.type-card {
-		position: relative;
-		display: flex;
-		align-items: center;
-		gap: 14px;
-		min-height: 78px;
-		padding: 16px 18px;
-		border: 1px solid #e5eaf2;
-		border-radius: 14px;
-		background: white;
-		color: #334155;
-		text-align: left;
-		cursor: pointer;
-		box-shadow: 0 4px 14px rgba(15, 23, 42, 0.03);
-		transition:
-			border-color 0.2s ease,
-			box-shadow 0.2s ease,
-			background 0.2s ease;
-	}
+    <!-- TEACHERS -->
 
-	.type-card:hover {
-		border-color: #b9cdf5;
-	}
+    <button
+        type="button"
+        class:active={selectedType === 'teachers'}
+        class="type-card"
+        onclick={() => selectedType = 'teachers'}
+    >
 
-	.type-card.active {
-		border-color: #2563eb;
-		background: #f7faff;
-		box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.08);
-	}
+        <div class="icon-box">
+            <GraduationCap size={20} />
+        </div>
 
-	.type-icon {
-		width: 44px;
-		height: 44px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		flex-shrink: 0;
-		border-radius: 11px;
-		background: #eaf1ff;
-		color: #2563eb;
-		font-size: 20px;
-	}
+        <span>Teachers</span>
 
-	.type-label {
-		font-size: 14px;
-		font-weight: 600;
-	}
+        {#if selectedType === 'teachers'}
+            <div class="check">
+                <Check size={15} />
+            </div>
+        {/if}
 
-	.selected-indicator {
-		position: absolute;
-		top: 12px;
-		right: 12px;
-		width: 20px;
-		height: 20px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 50%;
-		background: #2563eb;
-		color: white;
-		font-size: 11px;
-		font-weight: 700;
-	}
+    </button>
 
-	@media (max-width: 750px) {
-		.type-grid {
-			grid-template-columns: 1fr;
-		}
-	}
+
+    <!-- EMPLOYEES -->
+
+    <button
+        type="button"
+        class:active={selectedType === 'employees'}
+        class="type-card"
+        onclick={() => selectedType = 'employees'}
+    >
+
+        <div class="icon-box">
+            <BriefcaseBusiness size={20} />
+        </div>
+
+        <span>Employees / Staff</span>
+
+        {#if selectedType === 'employees'}
+            <div class="check">
+                <Check size={15} />
+            </div>
+        {/if}
+
+    </button>
+
+</div>
+
+
+<style lang="scss">
+
+.selector {
+    display: grid;
+
+    grid-template-columns:
+        repeat(3, 1fr);
+
+    gap: 16px;
+
+    margin-bottom: 28px;
+}
+
+
+.type-card {
+    position: relative;
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 14px;
+
+    width: 100%;
+
+    min-height: 82px;
+
+    padding: 18px;
+
+    box-sizing: border-box;
+
+    border: 1px solid #e5eaf2;
+
+    border-radius: 16px;
+
+    background: white;
+
+    color: #14213d;
+
+    font-size: 15px;
+
+    font-weight: 600;
+
+    text-align: left;
+
+    cursor: pointer;
+
+    transition:
+        border-color 0.2s,
+        box-shadow 0.2s,
+        background 0.2s;
+}
+
+
+.type-card:hover {
+    border-color: #b9cdf7;
+
+    box-shadow:
+        0 4px 14px
+        rgba(37, 99, 235, 0.08);
+}
+
+
+.type-card.active {
+    border-color: #2563eb;
+
+    box-shadow:
+        0 0 0 1px #2563eb,
+        0 6px 18px
+        rgba(37, 99, 235, 0.08);
+
+    background: #ffffff;
+}
+
+
+.icon-box {
+    width: 48px;
+
+    height: 48px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    border-radius: 12px;
+
+    background: #eef4ff;
+
+    color: #2563eb;
+}
+
+
+.type-card span {
+    color: #14213d;
+}
+
+
+.check {
+    position: absolute;
+
+    top: 14px;
+
+    right: 14px;
+
+    width: 22px;
+
+    height: 22px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: #2563eb;
+
+    color: white;
+}
+
+
+@media (max-width: 800px) {
+
+    .selector {
+        grid-template-columns: 1fr;
+    }
+
+}
 </style>
