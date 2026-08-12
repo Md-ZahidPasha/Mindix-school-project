@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { goto } from '$app/navigation';
 	const menuItems = [
 		{ label: 'Dashboard', icon: '⌂', active: true },
 		{ label: 'School Overview', icon: '▦' },
@@ -7,12 +8,15 @@
 		{ label: 'Employees / Staff', icon: '▣' },
 		{ label: 'Attendance', icon: '☑' },
 		{ label: 'Smart Timetable', icon: '▤' },
-		{ label: 'Teacher Leave', icon: '▢' },
+		{ label: 'Teacher / Employee Leave', icon: '▢' },
 		{ label: 'Library', icon: '▥' },
 		{ label: 'Certificates', icon: '▤' },
 		{ label: 'Notifications', icon: '♢' },
 		{ label: 'Reports', icon: '▥' }
 	];
+	function handleLogout() {
+    goto('/login');
+}
 </script>
 
 <aside class="sidebar">
@@ -37,7 +41,17 @@
 						? '/principal-dashboard/employees'
                         : item.label === 'Attendance'
 						? '/principal-dashboard/attendance'
-						: '/principal-dashboard'
+						: item.label === 'Teacher / Employee Leave'
+                        	? '/principal-dashboard/leave'
+							: item.label === 'Library'
+        						? '/principal-dashboard/library'
+								: item.label === 'Certificates'
+        							? '/principal-dashboard/certificates'
+									: item.label === 'Notifications'
+        								? '/principal-dashboard/notifications'
+										: item.label === 'Reports'
+											? '/principal-dashboard/reports'
+											: '/principal-dashboard'
 		}
 		class:active={item.active}
 		class="nav-item"
@@ -54,10 +68,15 @@
 			<span>Profile</span>
 		</a>
 
-		<button class="logout" type="button">
-			<span class="logout-icon">↪</span>
-			<span>Logout</span>
-		</button>
+		<button
+    class="logout"
+    type="button"
+    onclick={handleLogout}
+>
+    <span class="logout-icon">↪</span>
+    <span>Logout</span>
+</button>
+
 	</div>
 </aside>
 
