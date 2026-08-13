@@ -1,160 +1,153 @@
 <script lang="ts">
-	import { 
-		getDashboard
-		getTimetable
-	 } from '$lib/services/studentApi';
-	import {
-		LayoutDashboard,
-		UserCircle,
-		BookOpen,
-		CalendarCheck,
-		CalendarDays,
-		ClipboardCheck,
-		GraduationCap,
-		IndianRupee,
-		Library,
-		Award,
-		Bell,
-		Bot,
-		BarChart3,
-		Settings,
-		LogOut,
-		Search,
-		Clock,
-		ArrowRight,
-		CheckCircle2,
-		AlertCircle,
-		FileText
-	} from '@lucide/svelte';
+    import { getDashboard, getTimetable } from '$lib/services/studentApi';
+    import {
+        LayoutDashboard,
+        UserCircle,
+        BookOpen,
+        CalendarCheck,
+        CalendarDays,
+        ClipboardCheck,
+        GraduationCap,
+        IndianRupee,
+        Library,
+        Award,
+        Bell,
+        Bot,
+        BarChart3,
+        Settings,
+        LogOut,
+        Search,
+        Clock,
+        ArrowRight,
+        CheckCircle2,
+        AlertCircle,
+        FileText,
+    } from '@lucide/svelte';
 
-	const menuItems = [
-		{ icon: LayoutDashboard, label: 'Dashboard', active: true },
-		{ icon: UserCircle, label: 'My Profile', active: false },
-		{ icon: BookOpen, label: 'My Classes', active: false },
-		{ icon: CalendarCheck, label: 'Attendance', active: false },
-		{ icon: CalendarDays, label: 'Timetable', active: false },
-		{ icon: GraduationCap, label: 'Exams & Results', active: false },
-		{ icon: ClipboardCheck, label: 'Assignments', active: false },
-		{ icon: IndianRupee, label: 'Fees', active: false },
-		{ icon: Library, label: 'Library', active: false },
-		{ icon: Award, label: 'Certificates', active: false },
-		{ icon: Bell, label: 'Notifications', active: false },
-		{ icon: Bot, label: 'AI Assistant', active: false },
-		{ icon: BarChart3, label: 'Reports', active: false },
-		{ icon: Settings, label: 'Settings', active: false }
-	];
+    const menuItems = [
+    { icon: LayoutDashboard, label: 'Dashboard', href: '/student-dashboard', active: true },
+    { icon: UserCircle, label: 'My Profile', href: '/student-dashboard/profile', active: false },
+    { icon: CalendarCheck, label: 'Attendance', href: '/student-dashboard/attendance', active: false },
+    { icon: CalendarDays, label: 'My Timetable', href: '/student-dashboard/timetable', active: false },
+    { icon: ClipboardCheck, label: 'Assignments', href: '/student-dashboard/assignments', active: false },
+    { icon: FileText, label: 'Exams & Results', href: '/student-dashboard/exams', active: false },
+    { icon: IndianRupee, label: 'Fees & Payments', href: '/student-dashboard/fees', active: false },
+    { icon: Award, label: 'Certificates', href: '/student-dashboard/certificates', active: false },
+    { icon: BookOpen, label: 'Library', href: '/student-dashboard/library', active: false },
+    { icon: Bell, label: 'Notifications', href: '/student-dashboard/notifications', active: false },
+    { icon: Bell, label: 'AI Assistant', href: '/student-dashboard/ai-assistant', active: false }
+];
 
-	const timetable = [
-		{
-			time: '09:00 AM',
-			subject: 'Mathematics',
-			teacher: 'Mr. Ravi Kumar',
-			room: 'Room 204'
-		},
-		{
-			time: '10:00 AM',
-			subject: 'Physics',
-			teacher: 'Mrs. Anjali Sharma',
-			room: 'Room 105'
-		},
-		{
-			time: '11:30 AM',
-			subject: 'Biology',
-			teacher: 'Mr. Arjun Rao',
-			room: 'Lab 2'
-		},
-		{
-			time: '02:00 PM',
-			subject: 'English',
-			teacher: 'Mrs. Priya Singh',
-			room: 'Room 108'
-		}
-	];
+    const timetable = [
+        {
+            time: '09:00 AM',
+            subject: 'Mathematics',
+            teacher: 'Mr. Ravi Kumar',
+            room: 'Room 204',
+        },
+        {
+            time: '10:00 AM',
+            subject: 'Physics',
+            teacher: 'Mrs. Anjali Sharma',
+            room: 'Room 105',
+        },
+        {
+            time: '11:30 AM',
+            subject: 'Biology',
+            teacher: 'Mr. Arjun Rao',
+            room: 'Lab 2',
+        },
+        {
+            time: '02:00 PM',
+            subject: 'English',
+            teacher: 'Mrs. Priya Singh',
+            room: 'Room 108',
+        },
+    ];
 
-	const exams = [
-		{
-			subject: 'Mathematics',
-			date: '20 Aug',
-			time: '10:00 AM',
-			room: 'Room 204'
-		},
-		{
-			subject: 'Physics',
-			date: '23 Aug',
-			time: '10:00 AM',
-			room: 'Room 105'
-		},
-		{
-			subject: 'Biology',
-			date: '26 Aug',
-			time: '02:00 PM',
-			room: 'Lab 2'
-		}
-	];
+    const exams = [
+        {
+            subject: 'Mathematics',
+            date: '20 Aug',
+            time: '10:00 AM',
+            room: 'Room 204',
+        },
+        {
+            subject: 'Physics',
+            date: '23 Aug',
+            time: '10:00 AM',
+            room: 'Room 105',
+        },
+        {
+            subject: 'Biology',
+            date: '26 Aug',
+            time: '02:00 PM',
+            room: 'Lab 2',
+        },
+    ];
 
-	const results = [
-		{ subject: 'Mathematics', marks: '92 / 100', grade: 'A+' },
-		{ subject: 'Physics', marks: '86 / 100', grade: 'A' },
-		{ subject: 'Biology', marks: '95 / 100', grade: 'A+' },
-		{ subject: 'English', marks: '82 / 100', grade: 'A' }
-	];
+    const results = [
+        { subject: 'Mathematics', marks: '92 / 100', grade: 'A+' },
+        { subject: 'Physics', marks: '86 / 100', grade: 'A' },
+        { subject: 'Biology', marks: '95 / 100', grade: 'A+' },
+        { subject: 'English', marks: '82 / 100', grade: 'A' },
+    ];
 
-	const assignments = [
-		{
-			name: 'Quadratic Equations',
-			subject: 'Mathematics',
-			due: 'Today',
-			status: 'Pending'
-		},
-		{
-			name: 'Motion & Laws',
-			subject: 'Physics',
-			due: 'Tomorrow',
-			status: 'Submitted'
-		},
-		{
-			name: 'Cellular Structure',
-			subject: 'Biology',
-			due: '18 Aug',
-			status: 'Pending'
-		}
-	];
-	let dashboardData = $state<any>(null);
-	let loading = $state(true);
-	let error = $state('');
+    const assignments = [
+        {
+            name: 'Quadratic Equations',
+            subject: 'Mathematics',
+            due: 'Today',
+            status: 'Pending',
+        },
+        {
+            name: 'Motion & Laws',
+            subject: 'Physics',
+            due: 'Tomorrow',
+            status: 'Submitted',
+        },
+        {
+            name: 'Cellular Structure',
+            subject: 'Biology',
+            due: '18 Aug',
+            status: 'Pending',
+        },
+    ];
+    let dashboardData = $state<any>(null);
+    let loading = $state(true);
+    let error = $state('');
     let timetableData = $state<any>(null);
 
+    let timetableLoading = $state(true);
+    let timetableError = $state('');
+    async function loadDashboard() {
+        try {
+            loading = true;
+            error = '';
 
-		let timetableLoading = $state(true);
-let timetableError = $state('');
-async function loadDashboard() {
-    try {
-        loading = true;
-        error = '';
-
-        dashboardData = await getDashboard();
-    } catch (err) {
-        console.error('Failed to load student dashboard:', err);
-        error = 'Unable to load dashboard data.';
-    } finally {
-        loading = false;
+            dashboardData = await getDashboard();
+        } catch (err) {
+            console.error('Failed to load student dashboard:', err);
+            error = 'Unable to load dashboard data.';
+        } finally {
+            loading = false;
+        }
     }
-}
-async function loadTimetable() {
-    try {
-        timetableLoading = true;
-        timetableError = '';
+    async function loadTimetable() {
+        try {
+            timetableLoading = true;
+            timetableError = '';
 
-        timetableData = await getTimetable();
-    } catch (err) {
-        console.error('Failed to load timetable:', err);
-        timetableError = 'Unable to load timetable.';
-    } finally {
-        timetableLoading = false;
+            timetableData = await getTimetable();
+        } catch (err) {
+            console.error('Failed to load timetable:', err);
+            timetableError = 'Unable to load timetable.';
+        } finally {
+            timetableLoading = false;
+        }
     }
-}
-loadDashboard();
-loadTimetable();
+    loadDashboard();
+    loadTimetable();
 </script>
 
 <div class="dashboard">
@@ -162,45 +155,7 @@ loadTimetable();
 	     SIDEBAR
 	     ========================= -->
 
-    <aside class="sidebar">
-        <div class="brand">
-            <div class="brand-icon">
-                <BookOpen size={28} />
-            </div>
-
-            <div>
-                <h2>PaperBuddy</h2>
-                <span>Student Portal</span>
-            </div>
-        </div>
-
-        <nav class="navigation">
-            {#each menuItems as item}
-                <a href="/student-dashboard" class:active={item.active} class="nav-item">
-                    <item.icon size={21} />
-                    <span>{item.label}</span>
-                </a>
-            {/each}
-        </nav>
-
-        <div class="profile-card">
-            <div class="avatar">👨‍🎓</div>
-
-            <div>
-                <strong>{dashboardData?.student?.name ?? 'Student'}</strong>
-                <span>
-                    {dashboardData?.student?.class ?? '-'}
-                    {dashboardData?.student?.section ? ` - ${dashboardData.student.section}` : ''}
-                </span>
-            </div>
-        </div>
-
-        <button class="logout">
-            <LogOut size={20} />
-            <span>Logout</span>
-        </button>
-    </aside>
-
+    
     <!-- =========================
 	     MAIN CONTENT
 	     ========================= -->
@@ -365,23 +320,33 @@ loadTimetable();
                 </div>
 
                 <div class="schedule-list">
-                    {#each timetable as item}
-                        <div class="schedule-row">
-                            <div class="time">
-                                <Clock size={17} />
-                                {item.time}
-                            </div>
-
-                            <div>
-                                <strong>{item.subject}</strong>
-                                <span>{item.teacher}</span>
-                            </div>
-
-                            <div class="room">
-                                {item.room}
-                            </div>
+                    {#if timetableLoading}
+                        <div class="empty-message">Loading today's timetable...</div>
+                    {:else if timetableError}
+                        <div class="empty-message">
+                            {timetableError}
                         </div>
-                    {/each}
+                    {:else if timetableData?.slots?.length}
+                        {#each timetableData.slots as item}
+                            <div class="schedule-row">
+                                <div class="time">
+                                    <Clock size={17} />
+                                    Period {item.period}
+                                </div>
+
+                                <div>
+                                    <strong>{item.subject}</strong>
+                                    <span>{item.teacher}</span>
+                                </div>
+
+                                <div class="room">
+                                    {item.room ?? '-'}
+                                </div>
+                            </div>
+                        {/each}
+                    {:else}
+                        <div class="empty-message">No classes scheduled for today.</div>
+                    {/if}
                 </div>
             </section>
 
@@ -646,218 +611,7 @@ loadTimetable();
    SIDEBAR
    ========================= */
 
-    .sidebar {
-        width: 280px;
-        height: 100vh;
-
-        position: fixed;
-        left: 0;
-        top: 0;
-
-        background: #15315b;
-
-        display: flex;
-        flex-direction: column;
-
-        padding: 28px 20px;
-
-        box-sizing: border-box;
-
-        z-index: 10;
-
-        overflow: hidden;
-    }
-
-    /* BRAND */
-
-    .brand {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-
-        margin-bottom: 36px;
-    }
-
-    .brand-icon {
-        width: 52px;
-        height: 52px;
-
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        background: #2563eb;
-
-        color: white;
-
-        border-radius: 14px;
-    }
-
-    .brand h2 {
-        margin: 0;
-
-        font-size: 24px;
-        font-weight: 800;
-
-        color: white;
-    }
-
-    .brand span {
-        display: block;
-
-        margin-top: 3px;
-
-        font-size: 12px;
-
-        color: rgba(255, 255, 255, 0.75);
-    }
-
-    /* NAVIGATION */
-
-    .navigation {
-        flex: 1;
-
-        display: flex;
-        flex-direction: column;
-
-        gap: 6px;
-
-        overflow-y: auto;
-
-        padding-right: 6px;
-
-        scrollbar-width: none;
-    }
-
-    .navigation::-webkit-scrollbar {
-        display: none;
-    }
-
-    .nav-item {
-        width: 100%;
-        box-sizing: border-box;
-
-        display: flex;
-        align-items: center;
-
-        gap: 14px;
-
-        padding: 13px 14px;
-
-        border-radius: 13px;
-
-        text-decoration: none;
-
-        color: white;
-
-        font-size: 15px;
-
-        font-weight: 600;
-
-        transition: 0.25s;
-    }
-
-    .nav-item svg {
-        color: white;
-        stroke: white;
-    }
-
-    .nav-item:hover {
-        background: rgba(255, 255, 255, 0.08);
-        color: white;
-    }
-
-    .nav-item.active {
-        background: #2563eb;
-
-        color: white;
-
-        box-shadow: 0 10px 25px rgba(37, 99, 235, 0.25);
-    }
-
-    /* PROFILE */
-
-    .profile-card {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-
-        padding: 14px;
-
-        margin-top: 14px;
-
-        background: rgba(255, 255, 255, 0.08);
-
-        border: 1px solid rgba(255, 255, 255, 0.12);
-
-        border-radius: 15px;
-
-        color: white;
-    }
-
-    .avatar {
-        width: 44px;
-        height: 44px;
-
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        border-radius: 50%;
-
-        background: #2563eb;
-
-        font-size: 20px;
-    }
-
-    .profile-card strong {
-        display: block;
-
-        font-size: 14px;
-    }
-
-    .profile-card span {
-        display: block;
-
-        margin-top: 3px;
-
-        font-size: 12px;
-
-        color: rgba(255, 255, 255, 0.7);
-    }
-
-    /* LOGOUT */
-
-    .logout {
-        width: 100%;
-
-        display: flex;
-        align-items: center;
-
-        gap: 14px;
-
-        padding: 14px 18px;
-
-        margin-top: 14px;
-
-        border: none;
-
-        border-radius: 14px;
-
-        background: white;
-
-        color: #fca5a5;
-
-        font-size: 15px;
-
-        font-weight: 600;
-
-        cursor: pointer;
-    }
-
-    .logout svg {
-        color: #fca5a5;
-    }
+   
 
     /* =========================
    MAIN
@@ -865,8 +619,6 @@ loadTimetable();
 
     .main-content {
         flex: 1;
-
-        margin-left: 280px;
 
         padding: 36px;
 
@@ -1217,6 +969,12 @@ loadTimetable();
         font-size: 13px;
 
         color: #64748b;
+    }
+    .empty-message {
+        padding: 30px 20px;
+        text-align: center;
+        color: #94a3b8;
+        font-size: 11px;
     }
 
     /* =========================
