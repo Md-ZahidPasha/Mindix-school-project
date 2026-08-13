@@ -1,9 +1,14 @@
 from datetime import datetime, timedelta
 
-from jose import jwt
+from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from app.core.config import settings
+
+
+# ============================================================
+# PASSWORD HASHING
+# ============================================================
 
 pwd_context = CryptContext(
     schemes=["bcrypt"],
@@ -25,6 +30,10 @@ def verify_password(
     )
 
 
+# ============================================================
+# JWT ACCESS TOKEN
+# ============================================================
+
 def create_access_token(data: dict):
     to_encode = data.copy()
 
@@ -32,10 +41,34 @@ def create_access_token(data: dict):
         minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
     )
 
-    to_encode.update({"exp": expire})
+    to_encode.update({
+        "exp": expire
+    })
 
     return jwt.encode(
         to_encode,
         settings.SECRET_KEY,
         algorithm=settings.ALGORITHM
     )
+
+
+# ============================================================
+# JWT DECODING
+# ============================================================
+
+def decode_access_token(token: str) -> dict:
+    """
+    Decode and validate a PaperBuddy JWT access token.
+    """
+
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+        )
+
+        return payload
+
+    except JWTError:
+        return {}

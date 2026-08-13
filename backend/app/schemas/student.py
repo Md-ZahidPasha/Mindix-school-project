@@ -32,6 +32,7 @@ class StudentUpdate(BaseModel):
 
 class StudentResponse(BaseModel):
     id: UUID
+    student_id: str
     user_id: UUID
     full_name: str
     email: EmailStr

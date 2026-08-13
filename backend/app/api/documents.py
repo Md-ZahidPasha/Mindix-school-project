@@ -1,9 +1,12 @@
-from typing import Any
+import json
+from uuid import UUID
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
-from pydantic import BaseModel
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
-from app.services.document_service import extract_document
+from app.services.document_service import (
+    extract_document,
+    save_verified_document,
+)
 
 
 router = APIRouter(
@@ -13,23 +16,12 @@ router = APIRouter(
 
 
 # ============================================================
-# ADMIN REVIEW / SAVE REQUEST
-# ============================================================
-
-class DocumentSaveRequest(BaseModel):
-    filename: str
-    document_type: str
-    confidence: float | None = None
-    data: dict[str, Any]
-
-
-# ============================================================
 # AI DOCUMENT EXTRACTION
 # ============================================================
 
 @router.post("/extract")
 async def extract_document_api(
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
 ):
     try:
         file_bytes = await file.read()
@@ -37,34 +29,41 @@ async def extract_document_api(
         if not file_bytes:
             raise HTTPException(
                 status_code=400,
-                detail="Uploaded file is empty."
+                detail="Uploaded file is empty.",
             )
 
-        # Use the MIME type provided by the browser.
-        mime_type = file.content_type or "application/octet-stream"
+        mime_type = (
+            file.content_type
+            or "application/octet-stream"
+        )
 
         extracted_data = extract_document(
             file_bytes,
             mime_type,
-            file.filename or "unknown"
+            file.filename or "unknown",
         )
 
         return {
             "status": "success",
             "message": "Document processed successfully",
             "filename": file.filename,
-            "data": extracted_data.model_dump(mode="json"),
+            "data": extracted_data.model_dump(
+                mode="json"
+            ),
         }
 
     except HTTPException:
         raise
 
     except Exception as e:
-        print("Document extraction error:", e)
+        print(
+            "Document extraction error:",
+            repr(e),
+        )
 
         raise HTTPException(
             status_code=500,
-            detail="Failed to process document."
+            detail="Failed to process document.",
         )
 
 
@@ -74,37 +73,156 @@ async def extract_document_api(
 
 @router.post("/save")
 async def save_document(
-    request: DocumentSaveRequest
+    file: UploadFile = File(...),
+    institution_id: UUID = Form(...),
+    document_type: str = Form(...),
+    data: str = Form(...),
+    confidence: float | None = Form(default=None),
+    uploaded_by: UUID | None = Form(default=None),
+    reviewed_by: UUID | None = Form(default=None),
 ):
     try:
         # ----------------------------------------------------
-        # TEMPORARY SAVE
-        #
-        # Supabase database insertion will be connected after
-        # Haseeb creates the documents table.
+        # 1. Read uploaded document
         # ----------------------------------------------------
 
-        verified_document = {
-            "filename": request.filename,
-            "document_type": request.document_type,
-            "confidence": request.confidence,
-            "data": request.data,
-            "status": "verified",
-        }
+        file_bytes = await file.read()
 
-        print("Verified document:")
-        print(verified_document)
+        if not file_bytes:
+            raise HTTPException(
+                status_code=400,
+                detail="Uploaded file is empty.",
+            )
+
+        # ----------------------------------------------------
+        # 2. Parse dynamic JSON
+        # ----------------------------------------------------
+
+        try:
+            extracted_data = json.loads(data)
+
+        except json.JSONDecodeError:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid JSON in 'data' field.",
+            )
+
+        if not isinstance(extracted_data, dict):
+            raise HTTPException(
+                status_code=400,
+                detail="'data' must be a JSON object.",
+            )
+
+        # ----------------------------------------------------
+        # 3. Support both:
+        #
+        # A) Correct frontend format:
+        #
+        # {
+        #   "institution_name": "...",
+        #   "full_name": "..."
+        # }
+        #
+        # B) Full /extract response accidentally sent:
+        #
+        # {
+        #   "status": "success",
+        #   "message": "...",
+        #   "filename": "...",
+        #   "data": {
+        #       "document_type": "...",
+        #       "confidence": 0.99,
+        #       "data": {
+        #           ...
+        #       }
+        #   }
+        # }
+        # ----------------------------------------------------
+
+        if (
+            "status" in extracted_data
+            and "data" in extracted_data
+            and isinstance(
+                extracted_data["data"],
+                dict,
+            )
+        ):
+            extraction_wrapper = extracted_data["data"]
+
+            if (
+                "data" in extraction_wrapper
+                and isinstance(
+                    extraction_wrapper["data"],
+                    dict,
+                )
+            ):
+                extracted_data = (
+                    extraction_wrapper["data"]
+                )
+
+            else:
+                extracted_data = extraction_wrapper
+
+        # ----------------------------------------------------
+        # 4. Confidence validation
+        # ----------------------------------------------------
+
+        if confidence is not None:
+            if not 0 <= confidence <= 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Confidence must be between 0 and 1."
+                    ),
+                )
+
+        # ----------------------------------------------------
+        # 5. MIME type
+        # ----------------------------------------------------
+
+        mime_type = (
+            file.content_type
+            or "application/octet-stream"
+        )
+
+        # ----------------------------------------------------
+        # 6. Upload to Storage + save to documents table
+        # ----------------------------------------------------
+
+        saved_document = save_verified_document(
+            file_bytes=file_bytes,
+            filename=file.filename or "unknown",
+            mime_type=mime_type,
+            institution_id=institution_id,
+            uploaded_by=uploaded_by,
+            reviewed_by=reviewed_by,
+            document_type=document_type,
+            confidence=confidence,
+            extracted_data=extracted_data,
+        )
+
+        # ----------------------------------------------------
+        # 7. Success response
+        # ----------------------------------------------------
 
         return {
             "status": "success",
-            "message": "Document verified successfully.",
-            "data": verified_document,
+            "message": (
+                "Document verified and saved successfully."
+            ),
+            "data": saved_document,
         }
 
+    except HTTPException:
+        raise
+
     except Exception as e:
-        print("Document save error:", e)
+        print(
+            "Document save error:",
+            repr(e),
+        )
 
         raise HTTPException(
             status_code=500,
-            detail="Failed to save document."
+            detail="Failed to save document.",
         )

@@ -44,12 +44,47 @@ class InstitutionLoginResponse(BaseModel):
 
 
 # ==========================================
+# Student Login
+# ==========================================
+class StudentLoginRequest(BaseModel):
+    student_id: str
+    password: str
+
+
+# ==========================================
+# Student Login Response
+# ==========================================
+class StudentLoginResponse(BaseModel):
+    message: str
+    student_id: str
+    user_id: str
+    institution_id: str
+    role: str
+    full_name: str
+    access_token: str
+    token_type: str = "bearer"
+
+
+# ==========================================
 # Parent Login
 # ==========================================
 class ParentLoginRequest(BaseModel):
-    student_id: str
-    parent_phone: str
+    parent_id: str
+    password: str
 
+
+# ==========================================
+# Parent Login Response
+# ==========================================
+class ParentLoginResponse(BaseModel):
+    message: str
+    parent_id: str
+    user_id: str
+    institution_id: str
+    role: str
+    full_name: str
+    access_token: str
+    token_type: str = "bearer"
 
 # ==========================================
 # JWT Token

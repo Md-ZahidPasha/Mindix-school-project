@@ -1,579 +1,741 @@
 <script lang="ts">
-    import { Eye, EyeOff } from '@lucide/svelte';
-    import { API } from '$lib/config/api';
+	import { Eye, EyeOff } from '@lucide/svelte';
+	import { API } from '$lib/config/api';
 
-    let selectedRole = $state('Admin');
-    let showPassword = $state(false);
-    let isLoading = $state(false);
-    let serverError = $state('');
+	let selectedRole = $state('Admin');
+	let showPassword = $state(false);
+	let isLoading = $state(false);
+	let serverError = $state('');
 
-    let loginId = $state('');
-    let password = $state('');
+	let loginId = $state('');
+	let password = $state('');
 
-    let errors = $state({
-        loginId: '',
-        password: ''
-    });
+	let errors = $state({
+		loginId: '',
+		password: ''
+	});
 
-    function validateForm(): boolean {
-        errors.loginId = '';
-        errors.password = '';
-        serverError = '';
+	function validateForm(): boolean {
+		errors.loginId = '';
+		errors.password = '';
+		serverError = '';
 
-        if (!loginId.trim()) {
-            errors.loginId = 'Institution name is required';
-        }
+		if (!loginId.trim()) {
+			if (selectedRole === 'Admin') {
+				errors.loginId = 'Institution name is required';
+			} else if (selectedRole === 'Student') {
+				errors.loginId = 'Student ID is required';
+			} else if (selectedRole === 'Parent') {
+				errors.loginId = 'Parent ID is required';
+			} else if (selectedRole === 'Staff') {
+				errors.loginId = 'Principal / Teacher ID is required';
+			} else {
+				errors.loginId = 'Employee ID is required';
+			}
+		}
 
-        if (!password.trim()) {
-            errors.password = 'Password is required';
-        }
+		if (!password.trim()) {
+			errors.password = 'Password is required';
+		}
 
-        return Object.values(errors).every(
-            (error) => error === ''
-        );
-    }
+		return Object.values(errors).every(
+			(error) => error === ''
+		);
+	}
 
-    async function handleSubmit() {
-        if (!validateForm()) {
-            return;
-        }
+	async function handleSubmit() {
+		if (!validateForm()) {
+			return;
+		}
 
-        // Current backend supports Institution Login only.
-        if (selectedRole !== 'Admin') {
-            serverError =
-                'This login role is not available yet. Please use Admin login.';
-            return;
-        }
+		/*
+		 * Backend login endpoints currently available:
+		 *
+		 * Admin:
+		 * /api/auth/login
+		 *
+		 * Student:
+		 * /api/auth/student-login
+		 *
+		 * Parent:
+		 * /api/auth/parent-login
+		 *
+		 * Principal / Teacher and Employee:
+		 * Backend login endpoints are not implemented yet.
+		 */
 
-        isLoading = true;
-        serverError = '';
+		if (
+			selectedRole === 'Staff' ||
+			selectedRole === 'Employee'
+		) {
+			serverError =
+				'Login for this role is not available yet.';
+			return;
+		}
 
-        try {
-            const response = await fetch(API.login, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    institution_name: loginId.trim(),
-                    password: password
-                })
-            });
+		isLoading = true;
+		serverError = '';
 
-            const result = await response.json();
+		try {
+			let loginEndpoint = API.login;
 
-            if (!response.ok) {
-                throw new Error(
-                    result.detail || 'Invalid institution name or password.'
-                );
-            }
+			let requestBody: Record<string, string>;
 
-            /*
-             * Store the authentication information returned
-             * by the FastAPI backend.
-             */
-            localStorage.setItem(
-                'access_token',
-                result.access_token
-            );
+			// ==========================================
+			// ADMIN LOGIN
+			// ==========================================
+			if (selectedRole === 'Admin') {
+				loginEndpoint = API.login;
 
-            localStorage.setItem(
-                'token_type',
-                result.token_type || 'bearer'
-            );
+				requestBody = {
+					institution_name: loginId.trim(),
+					password: password
+				};
+			}
 
-            localStorage.setItem(
-                'institution_id',
-                result.institution_id
-            );
+			// ==========================================
+			// STUDENT LOGIN
+			// ==========================================
+			else if (selectedRole === 'Student') {
+				loginEndpoint = API.login.replace(
+					/\/login$/,
+					'/student-login'
+				);
 
-            localStorage.setItem(
-                'institution_name',
-                result.institution_name
-            );
+				requestBody = {
+					student_id: loginId.trim(),
+					password: password
+				};
+			}
 
-            localStorage.setItem(
-                'user_id',
-                result.user_id
-            );
+			// ==========================================
+			// PARENT LOGIN
+			// ==========================================
+			else {
+				loginEndpoint = API.login.replace(
+					/\/login$/,
+					'/parent-login'
+				);
 
-            localStorage.setItem(
-                'user_role',
-                result.role
-            );
+				requestBody = {
+					parent_id: loginId.trim(),
+					password: password
+				};
+			}
 
-            /*
-             * Redirect according to the role returned
-             * by the backend.
-             */
-            switch (result.role?.toLowerCase()) {
-                case 'principal':
-                    window.location.href = '/principal-dashboard';
-                    break;
+			const response = await fetch(
+				loginEndpoint,
+				{
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify(requestBody)
+				}
+			);
 
-                case 'admin':
-                    window.location.href = '/dashboard';
-                    break;
+			const result = await response.json();
 
-                default:
-                    serverError =
-                        `Login successful, but dashboard for role "${result.role}" is not available yet.`;
-                    break;
-            }
-        } catch (error) {
-            serverError =
-                error instanceof Error
-                    ? error.message
-                    : 'Unable to connect to the server.';
-        } finally {
-            isLoading = false;
-        }
-    }
+			if (!response.ok) {
+				throw new Error(
+					result.detail ||
+						'Invalid ID or password.'
+				);
+			}
 
-    function changeRole(role: string) {
-        selectedRole = role;
+			/*
+			 * Store common authentication information.
+			 */
 
-        loginId = '';
-        password = '';
+			localStorage.setItem(
+				'access_token',
+				result.access_token
+			);
 
-        errors.loginId = '';
-        errors.password = '';
-        serverError = '';
+			localStorage.setItem(
+				'token_type',
+				result.token_type || 'bearer'
+			);
 
-        showPassword = false;
-    }
+			localStorage.setItem(
+				'user_id',
+				result.user_id
+			);
+
+			localStorage.setItem(
+				'user_role',
+				result.role
+			);
+
+			// ==========================================
+			// STUDENT-SPECIFIC INFORMATION
+			// ==========================================
+
+			if (selectedRole === 'Student') {
+				localStorage.setItem(
+					'student_id',
+					result.student_id
+				);
+
+				localStorage.setItem(
+					'institution_id',
+					result.institution_id
+				);
+
+				localStorage.setItem(
+					'full_name',
+					result.full_name
+				);
+
+				/*
+				 * Redirect to Student Dashboard.
+				 */
+
+				window.location.href =
+					'/student-dashboard';
+
+				return;
+			}
+
+			// ==========================================
+			// PARENT-SPECIFIC INFORMATION
+			// ==========================================
+
+			if (selectedRole === 'Parent') {
+				localStorage.setItem(
+					'parent_id',
+					result.parent_id
+				);
+
+				localStorage.setItem(
+					'institution_id',
+					result.institution_id
+				);
+
+				localStorage.setItem(
+					'full_name',
+					result.full_name
+				);
+
+				/*
+				 * Redirect to Parent Dashboard.
+				 */
+
+				window.location.href =
+					'/parent-dashboard';
+
+				return;
+			}
+
+			// ==========================================
+			// ADMIN-SPECIFIC INFORMATION
+			// ==========================================
+
+			localStorage.setItem(
+				'institution_id',
+				result.institution_id
+			);
+
+			localStorage.setItem(
+				'institution_name',
+				result.institution_name
+			);
+
+			/*
+			 * Redirect according to Admin role.
+			 */
+
+			switch (result.role?.toLowerCase()) {
+				case 'principal':
+					window.location.href =
+						'/principal-dashboard';
+					break;
+
+				case 'admin':
+					window.location.href =
+						'/dashboard';
+					break;
+
+				default:
+					serverError =
+						`Login successful, but dashboard for role "${result.role}" is not available yet.`;
+					break;
+			}
+		} catch (error) {
+			serverError =
+				error instanceof Error
+					? error.message
+					: 'Unable to connect to the server.';
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	function changeRole(role: string) {
+		selectedRole = role;
+
+		loginId = '';
+		password = '';
+
+		errors.loginId = '';
+		errors.password = '';
+		serverError = '';
+
+		showPassword = false;
+	}
 </script>
 
 <div class="login-card">
 
-    <div class="login-header">
-        <h1>Welcome Back!</h1>
-        <p>Sign in to continue to your account</p>
-    </div>
+	<div class="login-header">
+		<h1>Welcome Back!</h1>
+		<p>Sign in to continue to your account</p>
+	</div>
 
-    <div class="role-section">
+	<div class="role-section">
 
-        <p class="role-label">Login as</p>
+		<p class="role-label">Login as</p>
 
-        <div class="role-tabs">
+		<div class="role-tabs">
 
-            <button
-                type="button"
-                class:active={selectedRole === 'Admin'}
-                onclick={() => changeRole('Admin')}
-            >
-                Admin
-            </button>
+			<button
+				type="button"
+				class:active={selectedRole === 'Admin'}
+				onclick={() => changeRole('Admin')}
+			>
+				Admin
+			</button>
 
-            <button
-                type="button"
-                class:active={selectedRole === 'Staff'}
-                onclick={() => changeRole('Staff')}
-            >
-                Principal / Teacher
-            </button>
+			<button
+				type="button"
+				class:active={selectedRole === 'Staff'}
+				onclick={() => changeRole('Staff')}
+			>
+				Principal / Teacher
+			</button>
 
-            <button
-                type="button"
-                class:active={selectedRole === 'Student'}
-                onclick={() => changeRole('Student')}
-            >
-                Student
-            </button>
+			<button
+				type="button"
+				class:active={selectedRole === 'Student'}
+				onclick={() => changeRole('Student')}
+			>
+				Student
+			</button>
 
-            <button
-                type="button"
-                class:active={selectedRole === 'Parent'}
-                onclick={() => changeRole('Parent')}
-            >
-                Parent
-            </button>
+			<button
+				type="button"
+				class:active={selectedRole === 'Parent'}
+				onclick={() => changeRole('Parent')}
+			>
+				Parent
+			</button>
 
-            <button
-                type="button"
-                class:active={selectedRole === 'Employee'}
-                onclick={() => changeRole('Employee')}
-            >
-                Employee
-            </button>
+			<button
+				type="button"
+				class:active={selectedRole === 'Employee'}
+				onclick={() => changeRole('Employee')}
+			>
+				Employee
+			</button>
 
-        </div>
+		</div>
 
-    </div>
+	</div>
 
-    <form
-        class="login-form"
-        onsubmit={(event) => {
-            event.preventDefault();
-            handleSubmit();
-        }}
-    >
+	<form
+		class="login-form"
+		onsubmit={(event) => {
+			event.preventDefault();
+			handleSubmit();
+		}}
+	>
 
-        <div class="form-group">
+		<div class="form-group">
 
-            <label for="loginId">
-                Institution Name
-            </label>
+			<label for="loginId">
+				{selectedRole === 'Admin'
+					? 'Institution Name'
+					: selectedRole === 'Student'
+						? 'Student ID'
+						: selectedRole === 'Parent'
+							? 'Parent ID'
+							: selectedRole === 'Staff'
+								? 'Principal / Teacher ID'
+								: 'Employee ID'}
+			</label>
 
-            <input
-                id="loginId"
-                type="text"
-                bind:value={loginId}
-                disabled={isLoading}
-                oninput={() => {
-                    errors.loginId = '';
-                    serverError = '';
-                }}
-                placeholder="Enter institution name"
-            />
+			<input
+				id="loginId"
+				type="text"
+				bind:value={loginId}
+				disabled={isLoading}
+				oninput={() => {
+					errors.loginId = '';
+					serverError = '';
+				}}
+				placeholder={
+					selectedRole === 'Admin'
+						? 'Enter institution name'
+						: selectedRole === 'Student'
+							? 'Enter student ID (e.g. STU001)'
+							: selectedRole === 'Parent'
+								? 'Enter parent ID (e.g. PAR001)'
+								: selectedRole === 'Staff'
+									? 'Enter principal / teacher ID'
+									: 'Enter employee ID'
+				}
+			/>
 
-            {#if errors.loginId}
-                <p class="error-message">
-                    {errors.loginId}
-                </p>
-            {/if}
+			{#if errors.loginId}
+				<p class="error-message">
+					{errors.loginId}
+				</p>
+			{/if}
 
-        </div>
+		</div>
 
-        <div class="form-group">
+		<div class="form-group">
 
-            <label for="password">
-                Password
-            </label>
+			<label for="password">
+				Password
+			</label>
 
-            <div class="password-wrapper">
+			<div class="password-wrapper">
 
-                <input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    bind:value={password}
-                    disabled={isLoading}
-                    oninput={() => {
-                        errors.password = '';
-                        serverError = '';
-                    }}
-                    placeholder="Enter your password"
-                />
+				<input
+					id="password"
+					type={showPassword ? 'text' : 'password'}
+					bind:value={password}
+					disabled={isLoading}
+					oninput={() => {
+						errors.password = '';
+						serverError = '';
+					}}
+					placeholder="Enter your password"
+				/>
 
-                <button
-                    type="button"
-                    class="eye-btn"
-                    aria-label={showPassword
-                        ? 'Hide password'
-                        : 'Show password'}
-                    onclick={() => showPassword = !showPassword}
-                    disabled={isLoading}
-                >
-                    {#if showPassword}
-                        <EyeOff size={19} />
-                    {:else}
-                        <Eye size={19} />
-                    {/if}
-                </button>
+				<button
+					type="button"
+					class="eye-btn"
+					aria-label={
+						showPassword
+							? 'Hide password'
+							: 'Show password'
+					}
+					onclick={() =>
+						(showPassword = !showPassword)}
+					disabled={isLoading}
+				>
+					{#if showPassword}
+						<EyeOff size={19} />
+					{:else}
+						<Eye size={19} />
+					{/if}
+				</button>
 
-            </div>
+			</div>
 
-            {#if errors.password}
-                <p class="error-message">
-                    {errors.password}
-                </p>
-            {/if}
+			{#if errors.password}
+				<p class="error-message">
+					{errors.password}
+				</p>
+			{/if}
 
-        </div>
+		</div>
 
-        {#if serverError}
-            <div class="server-error">
-                {serverError}
-            </div>
-        {/if}
+		{#if serverError}
+			<div class="server-error">
+				{serverError}
+			</div>
+		{/if}
 
-        <div class="login-options">
+		<div class="login-options">
 
-            <label class="remember">
+			<label class="remember">
 
-                <input
-                    type="checkbox"
-                    disabled={isLoading}
-                />
+				<input
+					type="checkbox"
+					disabled={isLoading}
+				/>
 
-                <span>Remember me</span>
+				<span>Remember me</span>
 
-            </label>
+			</label>
 
-            <button
-                type="button"
-                class="forgot-btn"
-                disabled={isLoading}
-            >
-                Forgot Password?
-            </button>
+			<button
+				type="button"
+				class="forgot-btn"
+				disabled={isLoading}
+			>
+				Forgot Password?
+			</button>
 
-        </div>
+		</div>
 
-        <button
-            type="submit"
-            class="login-btn"
-            disabled={isLoading}
-        >
-            {#if isLoading}
-                Logging in...
-            {:else}
-                Login
-            {/if}
-        </button>
+		<button
+			type="submit"
+			class="login-btn"
+			disabled={isLoading}
+		>
+			{#if isLoading}
+				Logging in...
+			{:else}
+				Login
+			{/if}
+		</button>
 
-    </form>
+	</form>
 
 </div>
 
 <style lang="scss">
 
-    .login-card {
-        width: 100%;
-        max-width: 720px;
-        margin: 0 auto;
-        background: white;
-        border: 1px solid #E2E8F0;
-        border-radius: 24px;
-        padding: 42px;
-        box-shadow: 0 20px 50px rgba(15, 23, 42, .08);
-    }
+	.login-card {
+		width: 100%;
+		max-width: 720px;
+		margin: 0 auto;
+		background: white;
+		border: 1px solid #E2E8F0;
+		border-radius: 24px;
+		padding: 42px;
+		box-shadow: 0 20px 50px rgba(15, 23, 42, .08);
+	}
 
-    .login-header {
-        text-align: center;
-        margin-bottom: 34px;
-    }
+	.login-header {
+		text-align: center;
+		margin-bottom: 34px;
+	}
 
-    .login-header h1 {
-        margin: 0;
-        color: #0F172A;
-        font-size: 32px;
-        font-weight: 800;
-    }
+	.login-header h1 {
+		margin: 0;
+		color: #0F172A;
+		font-size: 32px;
+		font-weight: 800;
+	}
 
-    .login-header p {
-        margin: 10px 0 0;
-        color: #64748B;
-        font-size: 15px;
-    }
+	.login-header p {
+		margin: 10px 0 0;
+		color: #64748B;
+		font-size: 15px;
+	}
 
-    .role-section {
-        margin-bottom: 28px;
-    }
+	.role-section {
+		margin-bottom: 28px;
+	}
 
-    .role-label {
-        display: block;
-        margin-bottom: 10px;
-        color: #0F172A;
-        font-size: 14px;
-        font-weight: 600;
-    }
+	.role-label {
+		display: block;
+		margin-bottom: 10px;
+		color: #0F172A;
+		font-size: 14px;
+		font-weight: 600;
+	}
 
-    .role-tabs {
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        gap: 8px;
-    }
+	.role-tabs {
+		display: grid;
+		grid-template-columns: repeat(5, 1fr);
+		gap: 8px;
+	}
 
-    .role-tabs button {
-        min-height: 44px;
-        padding: 10px 12px;
+	.role-tabs button {
+		min-height: 44px;
+		padding: 10px 12px;
 
-        border: 1px solid #E2E8F0;
-        border-radius: 10px;
+		border: 1px solid #E2E8F0;
+		border-radius: 10px;
 
-        background: #F8FAFC;
-        color: #475569;
+		background: #F8FAFC;
+		color: #475569;
 
-        font-size: 13px;
-        font-weight: 600;
+		font-size: 13px;
+		font-weight: 600;
 
-        cursor: pointer;
-        transition: all .2s ease;
-    }
+		cursor: pointer;
+		transition: all .2s ease;
+	}
 
-    .role-tabs button:hover {
-        background: #EFF6FF;
-        border-color: #93C5FD;
-        color: #2563EB;
-    }
+	.role-tabs button:hover {
+		background: #EFF6FF;
+		border-color: #93C5FD;
+		color: #2563EB;
+	}
 
-    .role-tabs button.active {
-        background: #2563EB;
-        border-color: #2563EB;
-        color: white;
-        box-shadow: 0 4px 10px rgba(37, 99, 235, .18);
-    }
+	.role-tabs button.active {
+		background: #2563EB;
+		border-color: #2563EB;
+		color: white;
+		box-shadow: 0 4px 10px rgba(37, 99, 235, .18);
+	}
 
-    .login-form {
-        display: flex;
-        flex-direction: column;
-        gap: 22px;
-    }
+	.login-form {
+		display: flex;
+		flex-direction: column;
+		gap: 22px;
+	}
 
-    .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
+	.form-group {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
 
-    .form-group label {
-        color: #0F172A;
-        font-size: 14px;
-        font-weight: 600;
-    }
+	.form-group label {
+		color: #0F172A;
+		font-size: 14px;
+		font-weight: 600;
+	}
 
-    .form-group input {
-        width: 100%;
-        height: 54px;
-        padding: 0 16px;
-        box-sizing: border-box;
-        border: 1px solid #E2E8F0;
-        border-radius: 12px;
-        background: white;
-        color: #0F172A;
-        font-size: 15px;
-        outline: none;
-        transition: .2s;
-    }
+	.form-group input {
+		width: 100%;
+		height: 54px;
+		padding: 0 16px;
+		box-sizing: border-box;
+		border: 1px solid #E2E8F0;
+		border-radius: 12px;
+		background: white;
+		color: #0F172A;
+		font-size: 15px;
+		outline: none;
+		transition: .2s;
+	}
 
-    .form-group input:focus {
-        border-color: #2563EB;
-        box-shadow: 0 0 0 4px rgba(37, 99, 235, .10);
-    }
+	.form-group input:focus {
+		border-color: #2563EB;
+		box-shadow: 0 0 0 4px rgba(37, 99, 235, .10);
+	}
 
-    .form-group input:disabled {
-        background: #F8FAFC;
-        cursor: not-allowed;
-    }
+	.form-group input:disabled {
+		background: #F8FAFC;
+		cursor: not-allowed;
+	}
 
-    .login-options {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-    }
+	.login-options {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+	}
 
-    .remember {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: #475569;
-        font-size: 13px;
-        cursor: pointer;
-    }
+	.remember {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		color: #475569;
+		font-size: 13px;
+		cursor: pointer;
+	}
 
-    .remember input {
-        width: 16px;
-        height: 16px;
-        accent-color: #2563EB;
-    }
+	.remember input {
+		width: 16px;
+		height: 16px;
+		accent-color: #2563EB;
+	}
 
-    .forgot-btn {
-        border: none;
-        background: transparent;
-        color: #2563EB;
-        font-size: 13px;
-        font-weight: 600;
-        cursor: pointer;
-    }
+	.forgot-btn {
+		border: none;
+		background: transparent;
+		color: #2563EB;
+		font-size: 13px;
+		font-weight: 600;
+		cursor: pointer;
+	}
 
-    .forgot-btn:hover {
-        text-decoration: underline;
-    }
+	.forgot-btn:hover {
+		text-decoration: underline;
+	}
 
-    .login-btn {
-        width: 100%;
-        height: 54px;
-        border: none;
-        border-radius: 12px;
-        background: #2563EB;
-        color: white;
-        font-size: 15px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: .2s;
-    }
+	.login-btn {
+		width: 100%;
+		height: 54px;
+		border: none;
+		border-radius: 12px;
+		background: #2563EB;
+		color: white;
+		font-size: 15px;
+		font-weight: 700;
+		cursor: pointer;
+		transition: .2s;
+	}
 
-    .login-btn:hover {
-        background: #1D4ED8;
-    }
+	.login-btn:hover {
+		background: #1D4ED8;
+	}
 
-    .login-btn:disabled {
-        opacity: .7;
-        cursor: not-allowed;
-    }
+	.login-btn:disabled {
+		opacity: .7;
+		cursor: not-allowed;
+	}
 
-    .password-wrapper {
-        position: relative;
-    }
+	.password-wrapper {
+		position: relative;
+	}
 
-    .password-wrapper input {
-        padding-right: 52px;
-    }
+	.password-wrapper input {
+		padding-right: 52px;
+	}
 
-    .eye-btn {
-        position: absolute;
-        top: 50%;
-        right: 14px;
-        transform: translateY(-50%);
+	.eye-btn {
+		position: absolute;
+		top: 50%;
+		right: 14px;
+		transform: translateY(-50%);
 
-        border: none;
-        background: transparent;
+		border: none;
+		background: transparent;
 
-        color: #64748B;
+		color: #64748B;
 
-        padding: 5px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+		padding: 5px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 
-        cursor: pointer;
-    }
+		cursor: pointer;
+	}
 
-    .eye-btn:hover {
-        color: #2563EB;
-    }
+	.eye-btn:hover {
+		color: #2563EB;
+	}
 
-    .eye-btn:disabled {
-        cursor: not-allowed;
-    }
+	.eye-btn:disabled {
+		cursor: not-allowed;
+	}
 
-    .error-message {
-        margin: -2px 0 0;
-        color: #DC2626;
-        font-size: 13px;
-        font-weight: 500;
-    }
+	.error-message {
+		margin: -2px 0 0;
+		color: #DC2626;
+		font-size: 13px;
+		font-weight: 500;
+	}
 
-    .server-error {
-        padding: 12px 14px;
-        border: 1px solid #FECACA;
-        border-radius: 10px;
-        background: #FEF2F2;
-        color: #DC2626;
-        font-size: 13px;
-        font-weight: 500;
-    }
+	.server-error {
+		padding: 12px 14px;
+		border: 1px solid #FECACA;
+		border-radius: 10px;
+		background: #FEF2F2;
+		color: #DC2626;
+		font-size: 13px;
+		font-weight: 500;
+	}
 
-    @media (max-width: 700px) {
+	@media (max-width: 700px) {
 
-        .login-card {
-            padding: 30px 22px;
-        }
+		.login-card {
+			padding: 30px 22px;
+		}
 
-        .role-tabs {
-            grid-template-columns: repeat(2, 1fr);
-        }
+		.role-tabs {
+			grid-template-columns: repeat(2, 1fr);
+		}
 
-        .role-tabs button:last-child {
-            grid-column: 1 / -1;
-        }
+		.role-tabs button:last-child {
+			grid-column: 1 / -1;
+		}
 
-        .login-header h1 {
-            font-size: 28px;
-        }
+		.login-header h1 {
+			font-size: 28px;
+		}
 
-    }
+	}
 
 </style>

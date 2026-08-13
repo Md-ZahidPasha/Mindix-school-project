@@ -8,7 +8,42 @@ from app.schemas.student import StudentCreate, StudentUpdate
 from app.core.security import hash_password
 
 
-def create_student(db: Session, student_data: StudentCreate):
+def generate_student_id(db: Session) -> str:
+    """
+    Generate the next human-readable student ID.
+
+    Example:
+    STU001
+    STU002
+    STU003
+    """
+
+    students = (
+        db.query(Student.student_id)
+        .filter(Student.student_id.isnot(None))
+        .all()
+    )
+
+    max_number = 0
+
+    for (student_id,) in students:
+        if not student_id:
+            continue
+
+        if student_id.startswith("STU"):
+            try:
+                number = int(student_id[3:])
+                max_number = max(max_number, number)
+            except ValueError:
+                continue
+
+    return f"STU{max_number + 1:03d}"
+
+
+def create_student(
+    db: Session,
+    student_data: StudentCreate
+):
     # Check whether email already exists
     existing_user = (
         db.query(User)
@@ -17,17 +52,26 @@ def create_student(db: Session, student_data: StudentCreate):
     )
 
     if existing_user:
-        raise ValueError("A user with this email already exists")
+        raise ValueError(
+            "A user with this email already exists"
+        )
 
     # Check whether roll number already exists
     existing_student = (
         db.query(Student)
-        .filter(Student.roll_number == student_data.roll_number)
+        .filter(
+            Student.roll_number == student_data.roll_number
+        )
         .first()
     )
 
     if existing_student:
-        raise ValueError("A student with this roll number already exists")
+        raise ValueError(
+            "A student with this roll number already exists"
+        )
+
+    # Automatically generate human-readable Student ID
+    student_id = generate_student_id(db)
 
     # Create user account
     user = User(
@@ -35,7 +79,9 @@ def create_student(db: Session, student_data: StudentCreate):
         full_name=student_data.full_name,
         email=student_data.email,
         phone=student_data.phone,
-        password_hash=hash_password(student_data.password),
+        password_hash=hash_password(
+            student_data.password
+        ),
         role="student",
         status="active",
     )
@@ -45,6 +91,7 @@ def create_student(db: Session, student_data: StudentCreate):
 
     # Create student profile
     student = Student(
+        student_id=student_id,
         user_id=user.id,
         class_id=student_data.class_id,
         roll_number=student_data.roll_number,
@@ -63,10 +110,15 @@ def create_student(db: Session, student_data: StudentCreate):
     return student, user
 
 
-def get_students(db: Session, institution_id: UUID):
+def get_students(
+    db: Session,
+    institution_id: UUID
+):
     return (
         db.query(Student)
-        .filter(Student.institution_id == institution_id)
+        .filter(
+            Student.institution_id == institution_id
+        )
         .all()
     )
 
@@ -111,7 +163,7 @@ def update_student(
         exclude_unset=True
     )
 
-    # Update student-specific fields
+    # Student-specific fields
     student_fields = {
         "roll_number",
         "admission_number",
@@ -122,9 +174,13 @@ def update_student(
 
     for field in student_fields:
         if field in data:
-            setattr(student, field, data[field])
+            setattr(
+                student,
+                field,
+                data[field]
+            )
 
-    # Update user fields
+    # User fields
     if user:
         if "full_name" in data:
             user.full_name = data["full_name"]
@@ -136,7 +192,6 @@ def update_student(
             user.phone = data["phone"]
 
     db.commit()
-
     db.refresh(student)
 
     return student

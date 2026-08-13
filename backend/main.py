@@ -8,6 +8,8 @@ from app.api.dashboard import router as dashboard_router
 from app.api.students import router as students_router
 from app.api.principal import router as principal_router
 from app.api.documents import router as documents_router
+from app.api.ai import router as ai_router
+from app.api.parent import router as parent_router
 
 
 app = FastAPI(
@@ -17,7 +19,9 @@ app = FastAPI(
 )
 
 
-# CORS Configuration
+# ============================================================
+# CORS CONFIGURATION
+# ============================================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,7 +41,9 @@ app.add_middleware(
 )
 
 
-# Routers
+# ============================================================
+# ROUTERS
+# ============================================================
 
 app.include_router(health_router)
 app.include_router(institution_router)
@@ -46,7 +52,13 @@ app.include_router(dashboard_router)
 app.include_router(students_router)
 app.include_router(principal_router)
 app.include_router(documents_router)
+app.include_router(ai_router)
+app.include_router(parent_router)
 
+
+# ============================================================
+# ROOT
+# ============================================================
 
 @app.get("/")
 def root():

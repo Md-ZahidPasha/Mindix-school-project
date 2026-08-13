@@ -16,6 +16,8 @@ from app.services.student_service import (
     update_student,
     delete_student,
 )
+from app.models.user import User
+
 
 router = APIRouter(
     prefix="/api/students",
@@ -40,6 +42,7 @@ def create_student_endpoint(
 
         return {
             "id": student.id,
+            "student_id": student.student_id,
             "user_id": student.user_id,
             "full_name": user.full_name,
             "email": user.email,
@@ -76,22 +79,15 @@ def list_students(
 
     for student in students:
         user = (
-            db.query(__import__(
-                "app.models.user",
-                fromlist=["User"]
-            ).User)
-            .filter(
-                __import__(
-                    "app.models.user",
-                    fromlist=["User"]
-                ).User.id == student.user_id
-            )
+            db.query(User)
+            .filter(User.id == student.user_id)
             .first()
         )
 
         if user:
             result.append({
                 "id": student.id,
+                "student_id": student.student_id,
                 "user_id": student.user_id,
                 "full_name": user.full_name,
                 "email": user.email,
@@ -128,8 +124,6 @@ def get_student_endpoint(
             detail="Student not found",
         )
 
-    from app.models.user import User
-
     user = (
         db.query(User)
         .filter(User.id == student.user_id)
@@ -144,6 +138,7 @@ def get_student_endpoint(
 
     return {
         "id": student.id,
+        "student_id": student.student_id,
         "user_id": student.user_id,
         "full_name": user.full_name,
         "email": user.email,
@@ -180,8 +175,6 @@ def update_student_endpoint(
             detail="Student not found",
         )
 
-    from app.models.user import User
-
     user = (
         db.query(User)
         .filter(User.id == student.user_id)
@@ -190,6 +183,7 @@ def update_student_endpoint(
 
     return {
         "id": student.id,
+        "student_id": student.student_id,
         "user_id": student.user_id,
         "full_name": user.full_name,
         "email": user.email,

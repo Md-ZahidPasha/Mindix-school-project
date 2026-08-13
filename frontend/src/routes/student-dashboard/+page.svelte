@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { 
-		getDashboard
+		getDashboard,
 		getTimetable
 	 } from '$lib/services/studentApi';
 	import {
