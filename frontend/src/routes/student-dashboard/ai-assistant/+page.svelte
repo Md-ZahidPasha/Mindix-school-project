@@ -1,0 +1,485 @@
+<script lang="ts">
+    import {
+        Bot,
+        Send,
+        Sparkles,
+        BookOpen,
+        GraduationCap,
+        CalendarDays,
+        HelpCircle
+    } from '@lucide/svelte';
+
+    let message = $state('');
+
+    function sendMessage() {
+        if (!message.trim()) {
+            return;
+        }
+
+        // AI backend integration will be added later.
+        message = '';
+    }
+</script>
+
+<svelte:head>
+    <title>AI Assistant | PaperBuddy</title>
+</svelte:head>
+
+<div class="assistant-page">
+    <!-- =========================
+         PAGE HEADER
+         ========================= -->
+
+    <div class="page-header">
+        <div class="title-section">
+            <div class="title-icon">
+                <Bot size={26} />
+            </div>
+
+            <div>
+                <h1>AI Assistant</h1>
+                <p>Your intelligent academic assistant.</p>
+            </div>
+        </div>
+
+        <div class="ai-status">
+            <span class="status-dot"></span>
+            AI Assistant
+        </div>
+    </div>
+
+    <!-- =========================
+         ASSISTANT AREA
+         ========================= -->
+
+    <section class="assistant-card">
+        <div class="welcome-area">
+            <div class="assistant-icon">
+                <Sparkles size={32} />
+            </div>
+
+            <h2>How can I help you?</h2>
+
+            <p>
+                Ask questions about your studies, assignments, exams,
+                attendance, timetable, or other academic information.
+            </p>
+        </div>
+
+        <!-- =========================
+             QUICK ACTIONS
+             ========================= -->
+
+        <div class="quick-actions">
+            <button type="button" class="quick-action">
+                <BookOpen size={18} />
+
+                <div>
+                    <strong>Study Help</strong>
+                    <span>Get help with your studies</span>
+                </div>
+            </button>
+
+            <button type="button" class="quick-action">
+                <GraduationCap size={18} />
+
+                <div>
+                    <strong>Exam Preparation</strong>
+                    <span>Prepare for your upcoming exams</span>
+                </div>
+            </button>
+
+            <button type="button" class="quick-action">
+                <CalendarDays size={18} />
+
+                <div>
+                    <strong>Academic Schedule</strong>
+                    <span>Ask about your academic schedule</span>
+                </div>
+            </button>
+
+            <button type="button" class="quick-action">
+                <HelpCircle size={18} />
+
+                <div>
+                    <strong>Ask a Question</strong>
+                    <span>Ask the assistant anything</span>
+                </div>
+            </button>
+        </div>
+
+        <!-- =========================
+             CHAT AREA
+             ========================= -->
+
+        <div class="chat-area">
+            <div class="empty-chat">
+                <Bot size={28} />
+
+                <h3>Start a conversation</h3>
+
+                <p>
+                    Your conversation with the AI Assistant will appear
+                    here.
+                </p>
+            </div>
+        </div>
+
+        <!-- =========================
+             MESSAGE INPUT
+             ========================= -->
+
+        <div class="message-box">
+            <input
+                bind:value={message}
+                type="text"
+                placeholder="Ask your AI Assistant..."
+                aria-label="Ask your AI Assistant"
+                onkeydown={(event) => {
+                    if (event.key === 'Enter') {
+                        sendMessage();
+                    }
+                }}
+            />
+
+            <button
+                type="button"
+                class="send-button"
+                aria-label="Send message"
+                onclick={sendMessage}
+                disabled={!message.trim()}
+            >
+                <Send size={18} />
+            </button>
+        </div>
+
+        <div class="assistant-note">
+            <Sparkles size={13} />
+            <span>
+                AI Assistant will be connected to the PaperBuddy backend
+                during integration.
+            </span>
+        </div>
+    </section>
+</div>
+
+<style>
+    .assistant-page {
+        min-height: 100vh;
+        padding: 36px;
+        box-sizing: border-box;
+        background: #f8fafc;
+    }
+
+    /* =========================
+       PAGE HEADER
+       ========================= */
+
+    .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        margin-bottom: 24px;
+    }
+
+    .title-section {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .title-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 50px;
+        height: 50px;
+        color: #2563eb;
+        background: #eff6ff;
+        border-radius: 13px;
+    }
+
+    .page-header h1 {
+        margin: 0;
+        color: #0f172a;
+        font-size: 30px;
+        font-weight: 800;
+    }
+
+    .page-header p {
+        margin: 6px 0 0;
+        color: #64748b;
+        font-size: 13px;
+    }
+
+    .ai-status {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 8px 12px;
+        color: #16a34a;
+        background: #f0fdf4;
+        border: 1px solid #dcfce7;
+        border-radius: 9px;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .status-dot {
+        width: 7px;
+        height: 7px;
+        background: #22c55e;
+        border-radius: 50%;
+    }
+
+    /* =========================
+       MAIN CARD
+       ========================= */
+
+    .assistant-card {
+        min-height: calc(100vh - 170px);
+        padding: 30px;
+        box-sizing: border-box;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 18px;
+        box-shadow: 0 5px 18px rgba(15, 23, 42, 0.04);
+    }
+
+    /* =========================
+       WELCOME
+       ========================= */
+
+    .welcome-area {
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+        max-width: 620px;
+        margin: 15px auto 28px;
+        text-align: center;
+    }
+
+    .assistant-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 68px;
+        height: 68px;
+        color: #2563eb;
+        background: #eff6ff;
+        border-radius: 18px;
+    }
+
+    .welcome-area h2 {
+        margin: 18px 0 8px;
+        color: #0f172a;
+        font-size: 22px;
+        font-weight: 800;
+    }
+
+    .welcome-area p {
+        max-width: 540px;
+        margin: 0;
+        color: #64748b;
+        font-size: 12px;
+        line-height: 1.7;
+    }
+
+    /* =========================
+       QUICK ACTIONS
+       ========================= */
+
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        max-width: 900px;
+        margin: 0 auto 25px;
+    }
+
+    .quick-action {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        min-height: 78px;
+        padding: 14px;
+        color: #2563eb;
+        text-align: left;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        cursor: pointer;
+        transition:
+            background 0.2s ease,
+            border-color 0.2s ease,
+            transform 0.2s ease;
+    }
+
+    .quick-action:hover {
+        background: #eff6ff;
+        border-color: #bfdbfe;
+        transform: translateY(-1px);
+    }
+
+    .quick-action strong {
+        display: block;
+        color: #0f172a;
+        font-size: 11px;
+    }
+
+    .quick-action span {
+        display: block;
+        margin-top: 4px;
+        color: #64748b;
+        font-size: 9px;
+        line-height: 1.4;
+    }
+
+    /* =========================
+       CHAT
+       ========================= */
+
+    .chat-area {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 260px;
+        padding: 20px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+    }
+
+    .empty-chat {
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+        color: #94a3b8;
+        text-align: center;
+    }
+
+    .empty-chat h3 {
+        margin: 12px 0 5px;
+        color: #475569;
+        font-size: 14px;
+    }
+
+    .empty-chat p {
+        margin: 0;
+        color: #94a3b8;
+        font-size: 11px;
+    }
+
+    /* =========================
+       MESSAGE BOX
+       ========================= */
+
+    .message-box {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        max-width: 900px;
+        margin: 18px auto 0;
+        padding: 8px 8px 8px 16px;
+        background: white;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+    }
+
+    .message-box:focus-within {
+        border-color: #93c5fd;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+    }
+
+    .message-box input {
+        flex: 1;
+        min-width: 0;
+        padding: 7px 0;
+        color: #0f172a;
+        background: transparent;
+        border: none;
+        outline: none;
+        font-size: 12px;
+    }
+
+    .message-box input::placeholder {
+        color: #94a3b8;
+    }
+
+    .send-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        flex-shrink: 0;
+        color: white;
+        background: #2563eb;
+        border: none;
+        border-radius: 9px;
+        cursor: pointer;
+    }
+
+    .send-button:hover:not(:disabled) {
+        background: #1d4ed8;
+    }
+
+    .send-button:disabled {
+        background: #cbd5e1;
+        cursor: not-allowed;
+    }
+
+    /* =========================
+       NOTE
+       ========================= */
+
+    .assistant-note {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        margin-top: 12px;
+        color: #94a3b8;
+        font-size: 9px;
+        text-align: center;
+    }
+
+    /* =========================
+       RESPONSIVE
+       ========================= */
+
+    @media (max-width: 1100px) {
+        .assistant-page {
+            padding: 24px;
+        }
+
+        .quick-actions {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (max-width: 700px) {
+        .assistant-page {
+            padding: 18px;
+        }
+
+        .page-header {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .assistant-card {
+            padding: 18px;
+        }
+
+        .quick-actions {
+            grid-template-columns: 1fr;
+        }
+
+        .chat-area {
+            min-height: 220px;
+        }
+    }
+</style>
