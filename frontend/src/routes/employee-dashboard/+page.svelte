@@ -66,64 +66,6 @@
 
 <div class="dashboard">
 
-	<!-- SIDEBAR -->
-
-	<aside class="sidebar">
-
-		<div class="brand">
-
-			<div class="brand-icon">
-				<Briefcase size={28} />
-			</div>
-
-			<div>
-				<h2>PaperBuddy</h2>
-				<span>Employee Portal</span>
-			</div>
-
-		</div>
-
-
-		<nav class="navigation">
-
-			{#each menuItems as item}
-
-				<a
-					href="/employee-dashboard"
-					class:active={item.active}
-					class="nav-item"
-				>
-					<item.icon size={21} />
-					<span>{item.label}</span>
-				</a>
-
-			{/each}
-
-		</nav>
-
-
-		<div class="profile-card">
-
-			<div class="avatar">
-				👨‍💼
-			</div>
-
-			<div>
-				<strong>Arjun Kumar</strong>
-				<span>Driving Department</span>
-			</div>
-
-		</div>
-
-
-		<button class="logout">
-			<LogOut size={20} />
-			<span>Logout</span>
-		</button>
-
-	</aside>
-
-
 	<!-- MAIN CONTENT -->
 
 	<main class="main-content">
@@ -897,8 +839,6 @@
 
 .main-content {
 	flex: 1;
-
-	margin-left: 280px;
 
 	padding: 36px;
 
@@ -1683,7 +1623,6 @@
 	}
 
 	.main-content {
-		margin-left: 250px;
 		padding: 24px;
 	}
 

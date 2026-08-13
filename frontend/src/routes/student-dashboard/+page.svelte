@@ -1,4 +1,8 @@
 <script lang="ts">
+	import { 
+		getDashboard
+		getTimetable
+	 } from '$lib/services/studentApi';
 	import {
 		LayoutDashboard,
 		UserCircle,
@@ -115,1797 +119,1679 @@
 			status: 'Pending'
 		}
 	];
+	let dashboardData = $state<any>(null);
+	let loading = $state(true);
+	let error = $state('');
+    let timetableData = $state<any>(null);
+
+
+		let timetableLoading = $state(true);
+let timetableError = $state('');
+async function loadDashboard() {
+    try {
+        loading = true;
+        error = '';
+
+        dashboardData = await getDashboard();
+    } catch (err) {
+        console.error('Failed to load student dashboard:', err);
+        error = 'Unable to load dashboard data.';
+    } finally {
+        loading = false;
+    }
+}
+async function loadTimetable() {
+    try {
+        timetableLoading = true;
+        timetableError = '';
+
+        timetableData = await getTimetable();
+    } catch (err) {
+        console.error('Failed to load timetable:', err);
+        timetableError = 'Unable to load timetable.';
+    } finally {
+        timetableLoading = false;
+    }
+}
+loadDashboard();
+loadTimetable();
 </script>
 
-
 <div class="dashboard">
-
-	<!-- =========================
+    <!-- =========================
 	     SIDEBAR
 	     ========================= -->
 
-	<aside class="sidebar">
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-icon">
+                <BookOpen size={28} />
+            </div>
 
-		<div class="brand">
+            <div>
+                <h2>PaperBuddy</h2>
+                <span>Student Portal</span>
+            </div>
+        </div>
 
-			<div class="brand-icon">
-				<BookOpen size={28} />
-			</div>
+        <nav class="navigation">
+            {#each menuItems as item}
+                <a href="/student-dashboard" class:active={item.active} class="nav-item">
+                    <item.icon size={21} />
+                    <span>{item.label}</span>
+                </a>
+            {/each}
+        </nav>
 
-			<div>
-				<h2>PaperBuddy</h2>
-				<span>Student Portal</span>
-			</div>
+        <div class="profile-card">
+            <div class="avatar">👨‍🎓</div>
 
-		</div>
+            <div>
+                <strong>{dashboardData?.student?.name ?? 'Student'}</strong>
+                <span>
+                    {dashboardData?.student?.class ?? '-'}
+                    {dashboardData?.student?.section ? ` - ${dashboardData.student.section}` : ''}
+                </span>
+            </div>
+        </div>
 
+        <button class="logout">
+            <LogOut size={20} />
+            <span>Logout</span>
+        </button>
+    </aside>
 
-		<nav class="navigation">
-
-			{#each menuItems as item}
-
-				<a
-					href="/student-dashboard"
-					class:active={item.active}
-					class="nav-item"
-				>
-					<item.icon size={21} />
-					<span>{item.label}</span>
-				</a>
-
-			{/each}
-
-		</nav>
-
-
-		<div class="profile-card">
-
-			<div class="avatar">
-				👨‍🎓
-			</div>
-
-			<div>
-				<strong>Rahul Kumar</strong>
-				<span>10th - A</span>
-			</div>
-
-		</div>
-
-
-		<button class="logout">
-			<LogOut size={20} />
-			<span>Logout</span>
-		</button>
-
-	</aside>
-
-
-	<!-- =========================
+    <!-- =========================
 	     MAIN CONTENT
 	     ========================= -->
 
-	<main class="main-content">
+    <main class="main-content">
+        <!-- HEADER -->
 
+        <header class="header">
+            <div class="welcome">
+                <h1>
+                    Welcome, {dashboardData?.student?.name ?? 'Student'} 👋
+                </h1>
 
-		<!-- HEADER -->
+                <p>Here's what's happening with your academics today.</p>
 
-		<header class="header">
+                <span>Tuesday, August 11, 2026</span>
+            </div>
 
-			<div class="welcome">
+            <div class="header-actions">
+                <div class="search-box">
+                    <Search size={18} />
 
-				<h1>Welcome, Student 👋</h1>
+                    <input type="text" placeholder="Search..." />
+                </div>
 
-				<p>
-					Here's what's happening with your academics today.
-				</p>
+                <button class="icon-button">
+                    <Bell size={20} />
+                </button>
 
-				<span>Tuesday, August 11, 2026</span>
+                <div class="profile">
+                    <UserCircle size={36} />
 
-			</div>
+                    <div>
+                        <strong>{dashboardData?.student?.name ?? 'Student'}</strong>
+                        <span>Student</span>
+                    </div>
+                </div>
+            </div>
+        </header>
 
-
-			<div class="header-actions">
-
-				<div class="search-box">
-
-					<Search size={18} />
-
-					<input
-						type="text"
-						placeholder="Search..."
-					/>
-
-				</div>
-
-
-				<button class="icon-button">
-					<Bell size={20} />
-				</button>
-
-
-				<div class="profile">
-
-					<UserCircle size={36} />
-
-					<div>
-						<strong>Rahul Kumar</strong>
-						<span>Student</span>
-					</div>
-
-				</div>
-
-			</div>
-
-		</header>
-
-
-		<!-- =========================
+        <!-- =========================
 		     KPI CARDS
 		     ========================= -->
 
-		<section class="stats-grid">
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <GraduationCap size={23} />
+                </div>
 
-			<div class="stat-card">
-				<div class="stat-icon">
-					<GraduationCap size={23} />
-				</div>
+                <div>
+                    <span>My Class</span>
+                    <strong>
+                        {dashboardData?.student?.class ?? '-'}
+                        {dashboardData?.student?.section
+                            ? ` - ${dashboardData.student.section}`
+                            : ''}
+                    </strong>
+                </div>
+            </div>
 
-				<div>
-					<span>My Class</span>
-					<strong>10th - A</strong>
-				</div>
-			</div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <CalendarCheck size={23} />
+                </div>
 
+                <div>
+                    <span>Attendance</span>
+                    <strong>
+                        {dashboardData?.attendance?.percentage ?? 0}%
+                    </strong>
+                </div>
+            </div>
 
-			<div class="stat-card">
-				<div class="stat-icon">
-					<CalendarCheck size={23} />
-				</div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <FileText size={23} />
+                </div>
 
-				<div>
-					<span>Attendance</span>
-					<strong>92%</strong>
-				</div>
-			</div>
+                <div>
+                    <span>Upcoming Exams</span>
+                    <strong>
+                        {dashboardData?.attendance?.upcoming ?? 0}
+                    </strong>
+                </div>
+            </div>
 
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <ClipboardCheck size={23} />
+                </div>
 
-			<div class="stat-card">
-				<div class="stat-icon">
-					<FileText size={23} />
-				</div>
+                <div>
+                    <span>Pending Assignments</span>
+                    <strong>
+                        {dashboardData?.attendance?.pending ?? 0}
+                    </strong>
+                </div>
+            </div>
 
-				<div>
-					<span>Upcoming Exams</span>
-					<strong>3</strong>
-				</div>
-			</div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <BarChart3 size={23} />
+                </div>
 
+                <div>
+                    <span>Last Exams Percentage</span>
+                    <strong>78%</strong>
+                </div>
+            </div>
 
-			<div class="stat-card">
-				<div class="stat-icon">
-					<ClipboardCheck size={23} />
-				</div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <Library size={23} />
+                </div>
 
-				<div>
-					<span>Pending Assignments</span>
-					<strong>4</strong>
-				</div>
-			</div>
+                <div>
+                    <span>Books Issued</span>
+                    <strong>3</strong>
+                </div>
+            </div>
 
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <IndianRupee size={23} />
+                </div>
 
-			<div class="stat-card">
-				<div class="stat-icon">
-					<BarChart3 size={23} />
-				</div>
+                <div>
+                    <span>Fee Due</span>
+                    <strong>₹4,500</strong>
+                </div>
+            </div>
 
-				<div>
-					<span>Last Exams Percentage</span>
-					<strong>78%</strong>
-				</div>
-			</div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <Award size={23} />
+                </div>
 
+                <div>
+                    <span>Certificates</span>
+                    <strong>5</strong>
+                </div>
+            </div>
+        </section>
 
-			<div class="stat-card">
-				<div class="stat-icon">
-					<Library size={23} />
-				</div>
-
-				<div>
-					<span>Books Issued</span>
-					<strong>3</strong>
-				</div>
-			</div>
-
-
-			<div class="stat-card">
-				<div class="stat-icon">
-					<IndianRupee size={23} />
-				</div>
-
-				<div>
-					<span>Fee Due</span>
-					<strong>₹4,500</strong>
-				</div>
-			</div>
-
-
-			<div class="stat-card">
-				<div class="stat-icon">
-					<Award size={23} />
-				</div>
-
-				<div>
-					<span>Certificates</span>
-					<strong>5</strong>
-				</div>
-			</div>
-
-		</section>
-
-
-		<!-- =========================
+        <!-- =========================
 		     TIMETABLE + ATTENDANCE
 		     ========================= -->
 
-		<div class="content-grid">
+        <div class="content-grid">
+            <section class="large-card">
+                <div class="section-header">
+                    <div>
+                        <h2>Today's Timetable</h2>
+                        <p>Your classes for today</p>
+                    </div>
 
+                    <button>
+                        View Timetable
+                        <ArrowRight size={17} />
+                    </button>
+                </div>
 
-			<section class="large-card">
+                <div class="schedule-list">
+                    {#each timetable as item}
+                        <div class="schedule-row">
+                            <div class="time">
+                                <Clock size={17} />
+                                {item.time}
+                            </div>
 
-				<div class="section-header">
+                            <div>
+                                <strong>{item.subject}</strong>
+                                <span>{item.teacher}</span>
+                            </div>
 
-					<div>
-						<h2>Today's Timetable</h2>
-						<p>Your classes for today</p>
-					</div>
+                            <div class="room">
+                                {item.room}
+                            </div>
+                        </div>
+                    {/each}
+                </div>
+            </section>
 
-					<button>
-						View Timetable
-						<ArrowRight size={17} />
-					</button>
+            <section class="large-card">
+                <div class="section-header">
+                    <div>
+                        <h2>Attendance Overview</h2>
+                        <p>Your monthly attendance</p>
+                    </div>
+                </div>
 
-				</div>
+                <div class="attendance-value">
+                    <strong>92%</strong>
 
+                    <span>Overall Attendance</span>
+                </div>
 
-				<div class="schedule-list">
+                <div class="attendance-bar">
+                    <div style={`width: ${dashboardData?.attendance?.percentage ?? 0}%;`}></div>
+                </div>
 
-					{#each timetable as item}
+                <div class="attendance-stats">
+                    <div>
+                        <strong>
+                            {dashboardData?.attendance?.present ?? 0}
+                        </strong>
+                        <span>Present</span>
+                    </div>
 
-						<div class="schedule-row">
+                    <div>
+                        <strong>
+                            {dashboardData?.attendance?.absent ?? 0}
+                        </strong>
+                        <span>Absent</span>
+                    </div>
 
-							<div class="time">
-								<Clock size={17} />
-								{item.time}
-							</div>
+                    <div>
+                        <strong>
+                            {dashboardData?.attendance?.late ?? 0}
+                        </strong>
+                        <span>Late</span>
+                    </div>
+                </div>
 
-							<div>
-								<strong>{item.subject}</strong>
-								<span>{item.teacher}</span>
-							</div>
+                <div class="attendance-note">
+                    <CheckCircle2 size={17} />
+                    <span>Your attendance is above the 75% requirement.</span>
+                </div>
+            </section>
+        </div>
 
-							<div class="room">
-								{item.room}
-							</div>
-
-						</div>
-
-					{/each}
-
-				</div>
-
-			</section>
-
-
-			<section class="large-card">
-
-				<div class="section-header">
-
-					<div>
-						<h2>Attendance Overview</h2>
-						<p>Your monthly attendance</p>
-					</div>
-
-				</div>
-
-
-				<div class="attendance-value">
-
-					<strong>92%</strong>
-
-					<span>Overall Attendance</span>
-
-				</div>
-
-
-				<div class="attendance-bar">
-					<div style="width: 92%;"></div>
-				</div>
-
-
-				<div class="attendance-stats">
-
-					<div>
-						<strong>82</strong>
-						<span>Present</span>
-					</div>
-
-					<div>
-						<strong>5</strong>
-						<span>Absent</span>
-					</div>
-
-					<div>
-						<strong>2</strong>
-						<span>Late</span>
-					</div>
-
-				</div>
-
-
-				<div class="attendance-note">
-					<CheckCircle2 size={17} />
-					<span>Your attendance is above the 75% requirement.</span>
-				</div>
-
-			</section>
-
-		</div>
-
-
-		<!-- =========================
+        <!-- =========================
 		     UPCOMING EXAMS + RESULTS
 		     ========================= -->
 
-		<div class="content-grid">
+        <div class="content-grid">
+            <section class="large-card">
+                <div class="section-header">
+                    <div>
+                        <h2>Upcoming Exams</h2>
+                        <p>Your upcoming examination schedule</p>
+                    </div>
 
+                    <button>
+                        View All
+                        <ArrowRight size={17} />
+                    </button>
+                </div>
 
-			<section class="large-card">
+                <div class="exam-list">
+                    {#each exams as exam}
+                        <div class="exam-item">
+                            <div class="exam-icon">
+                                <GraduationCap size={21} />
+                            </div>
 
-				<div class="section-header">
+                            <div class="exam-info">
+                                <strong>{exam.subject}</strong>
 
-					<div>
-						<h2>Upcoming Exams</h2>
-						<p>Your upcoming examination schedule</p>
-					</div>
+                                <span>
+                                    {exam.date} • {exam.time} • {exam.room}
+                                </span>
+                            </div>
+                        </div>
+                    {/each}
+                </div>
+            </section>
 
-					<button>
-						View All
-						<ArrowRight size={17} />
-					</button>
+            <section class="large-card">
+                <div class="section-header">
+                    <div>
+                        <h2>Recent Results</h2>
+                        <p>Your latest academic performance</p>
+                    </div>
 
-				</div>
+                    <button>
+                        View All
+                        <ArrowRight size={17} />
+                    </button>
+                </div>
 
+                <div class="results-list">
+                    {#each results as result}
+                        <div class="result-row">
+                            <div>
+                                <strong>{result.subject}</strong>
+                                <span>{result.marks}</span>
+                            </div>
 
-				<div class="exam-list">
+                            <div class="grade">
+                                {result.grade}
+                            </div>
+                        </div>
+                    {/each}
+                </div>
+            </section>
+        </div>
 
-					{#each exams as exam}
-
-						<div class="exam-item">
-
-							<div class="exam-icon">
-								<GraduationCap size={21} />
-							</div>
-
-							<div class="exam-info">
-
-								<strong>{exam.subject}</strong>
-
-								<span>
-									{exam.date} • {exam.time} • {exam.room}
-								</span>
-
-							</div>
-
-						</div>
-
-					{/each}
-
-				</div>
-
-			</section>
-
-
-			<section class="large-card">
-
-				<div class="section-header">
-
-					<div>
-						<h2>Recent Results</h2>
-						<p>Your latest academic performance</p>
-					</div>
-
-					<button>
-						View All
-						<ArrowRight size={17} />
-					</button>
-
-				</div>
-
-
-				<div class="results-list">
-
-					{#each results as result}
-
-						<div class="result-row">
-
-							<div>
-								<strong>{result.subject}</strong>
-								<span>{result.marks}</span>
-							</div>
-
-							<div class="grade">
-								{result.grade}
-							</div>
-
-						</div>
-
-					{/each}
-
-				</div>
-
-			</section>
-
-		</div>
-
-
-		<!-- =========================
+        <!-- =========================
 		     ASSIGNMENTS
 		     ========================= -->
 
-		<section class="large-card">
+        <section class="large-card">
+            <div class="section-header">
+                <div>
+                    <h2>Assignments</h2>
+                    <p>Track your assignments</p>
+                </div>
 
-			<div class="section-header">
+                <button>
+                    View All
+                    <ArrowRight size={17} />
+                </button>
+            </div>
 
-				<div>
-					<h2>Assignments</h2>
-					<p>Track your assignments</p>
-				</div>
+            <div class="table">
+                <div class="table-header">
+                    <span>Assignment</span>
+                    <span>Subject</span>
+                    <span>Due Date</span>
+                    <span>Status</span>
+                </div>
 
-				<button>
-					View All
-					<ArrowRight size={17} />
-				</button>
+                {#each assignments as assignment}
+                    <div class="table-row">
+                        <strong>{assignment.name}</strong>
 
-			</div>
+                        <span>{assignment.subject}</span>
 
+                        <span>{assignment.due}</span>
 
-			<div class="table">
+                        <span
+                            class:pending={assignment.status === 'Pending'}
+                            class:submitted={assignment.status === 'Submitted'}
+                        >
+                            {assignment.status}
+                        </span>
+                    </div>
+                {/each}
+            </div>
+        </section>
 
-				<div class="table-header">
-
-					<span>Assignment</span>
-					<span>Subject</span>
-					<span>Due Date</span>
-					<span>Status</span>
-
-				</div>
-
-
-				{#each assignments as assignment}
-
-					<div class="table-row">
-
-						<strong>{assignment.name}</strong>
-
-						<span>{assignment.subject}</span>
-
-						<span>{assignment.due}</span>
-
-						<span
-							class:pending={assignment.status === 'Pending'}
-							class:submitted={assignment.status === 'Submitted'}
-						>
-							{assignment.status}
-						</span>
-
-					</div>
-
-				{/each}
-
-			</div>
-
-		</section>
-
-
-		<!-- =========================
+        <!-- =========================
 		     APPLY LEAVE
 		     ========================= -->
 
-		<section class="large-card">
+        <section class="large-card">
+            <div class="section-header">
+                <div>
+                    <h2>Apply Leave</h2>
+                    <p>Manage your leave requests</p>
+                </div>
 
-			<div class="section-header">
+                <button class="apply-button">
+                    Apply Leave
+                    <ArrowRight size={17} />
+                </button>
+            </div>
 
-				<div>
-					<h2>Apply Leave</h2>
-					<p>Manage your leave requests</p>
-				</div>
+            <div class="leave-balance">
+                <div>
+                    <span>Available Leave</span>
+                    <strong>12 Days</strong>
+                </div>
 
-				<button class="apply-button">
-					Apply Leave
-					<ArrowRight size={17} />
-				</button>
+                <div>
+                    <span>Pending Requests</span>
+                    <strong>1</strong>
+                </div>
+            </div>
 
-			</div>
+            <div class="leave-list">
+                <div class="leave-item">
+                    <div>
+                        <strong>Casual Leave</strong>
+                        <span>18 Aug - 19 Aug</span>
+                    </div>
 
+                    <span class="leave-status"> Pending </span>
+                </div>
 
-			<div class="leave-balance">
+                <div class="leave-item">
+                    <div>
+                        <strong>Medical Leave</strong>
+                        <span>02 Aug - 03 Aug</span>
+                    </div>
 
-				<div>
-					<span>Available Leave</span>
-					<strong>12 Days</strong>
-				</div>
+                    <span class="leave-status approved"> Approved </span>
+                </div>
+            </div>
+        </section>
 
-				<div>
-					<span>Pending Requests</span>
-					<strong>1</strong>
-				</div>
-
-			</div>
-
-
-			<div class="leave-list">
-
-				<div class="leave-item">
-
-					<div>
-						<strong>Casual Leave</strong>
-						<span>18 Aug - 19 Aug</span>
-					</div>
-
-					<span class="leave-status">
-						Pending
-					</span>
-
-				</div>
-
-
-				<div class="leave-item">
-
-					<div>
-						<strong>Medical Leave</strong>
-						<span>02 Aug - 03 Aug</span>
-					</div>
-
-					<span class="leave-status approved">
-						Approved
-					</span>
-
-				</div>
-
-			</div>
-
-		</section>
-
-
-		<!-- =========================
+        <!-- =========================
 		     AI ASSISTANT
 		     ========================= -->
 
-		<section class="large-card ai-card">
+        <section class="large-card ai-card">
+            <div class="ai-heading">
+                <div class="ai-icon">
+                    <Bot size={24} />
+                </div>
 
-			<div class="ai-heading">
+                <div>
+                    <h2>AI Assistant</h2>
+                    <p>Ask PaperBuddy about your academics.</p>
+                </div>
+            </div>
 
-				<div class="ai-icon">
-					<Bot size={24} />
-				</div>
+            <div class="prompt-list">
+                <button class="prompt">
+                    <span>What exams do I have this week?</span>
+                    <ArrowRight size={16} />
+                </button>
 
-				<div>
-					<h2>AI Assistant</h2>
-					<p>Ask PaperBuddy about your academics.</p>
-				</div>
+                <button class="prompt">
+                    <span>Show my pending assignments.</span>
+                    <ArrowRight size={16} />
+                </button>
 
-			</div>
+                <button class="prompt">
+                    <span>Why is my attendance low?</span>
+                    <ArrowRight size={16} />
+                </button>
 
-
-			<div class="prompt-list">
-
-				<button class="prompt">
-					<span>What exams do I have this week?</span>
-					<ArrowRight size={16} />
-				</button>
-
-				<button class="prompt">
-					<span>Show my pending assignments.</span>
-					<ArrowRight size={16} />
-				</button>
-
-				<button class="prompt">
-					<span>Why is my attendance low?</span>
-					<ArrowRight size={16} />
-				</button>
-
-				<button class="prompt">
-					<span>Show my academic performance.</span>
-					<ArrowRight size={16} />
-				</button>
-
-			</div>
-
-		</section>
-
-	</main>
-
+                <button class="prompt">
+                    <span>Show my academic performance.</span>
+                    <ArrowRight size={16} />
+                </button>
+            </div>
+        </section>
+    </main>
 </div>
 
-
 <style lang="scss">
-.dashboard {
-	display: flex;
-	min-height: 100vh;
-	background: #F8FAFC;
-}
+    .dashboard {
+        display: flex;
+        min-height: 100vh;
+        background: #f8fafc;
+    }
 
-
-/* =========================
+    /* =========================
    SIDEBAR
    ========================= */
 
-.sidebar {
-	width: 280px;
-	height: 100vh;
+    .sidebar {
+        width: 280px;
+        height: 100vh;
 
-	position: fixed;
-	left: 0;
-	top: 0;
+        position: fixed;
+        left: 0;
+        top: 0;
 
-	background: #15315B;
+        background: #15315b;
 
-	display: flex;
-	flex-direction: column;
+        display: flex;
+        flex-direction: column;
 
-	padding: 28px 20px;
+        padding: 28px 20px;
 
-	box-sizing: border-box;
+        box-sizing: border-box;
 
-	z-index: 10;
+        z-index: 10;
 
-	overflow: hidden;
-}
+        overflow: hidden;
+    }
 
+    /* BRAND */
 
-/* BRAND */
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
 
-.brand {
-	display: flex;
-	align-items: center;
-	gap: 14px;
+        margin-bottom: 36px;
+    }
 
-	margin-bottom: 36px;
-}
+    .brand-icon {
+        width: 52px;
+        height: 52px;
 
-.brand-icon {
-	width: 52px;
-	height: 52px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
 
-	display: flex;
-	align-items: center;
-	justify-content: center;
+        background: #2563eb;
 
-	background: #2563EB;
+        color: white;
 
-	color: white;
+        border-radius: 14px;
+    }
 
-	border-radius: 14px;
-}
+    .brand h2 {
+        margin: 0;
 
-.brand h2 {
-	margin: 0;
+        font-size: 24px;
+        font-weight: 800;
 
-	font-size: 24px;
-	font-weight: 800;
+        color: white;
+    }
 
-	color: white;
-}
+    .brand span {
+        display: block;
 
-.brand span {
-	display: block;
+        margin-top: 3px;
 
-	margin-top: 3px;
+        font-size: 12px;
 
-	font-size: 12px;
+        color: rgba(255, 255, 255, 0.75);
+    }
 
-	color: rgba(255, 255, 255, 0.75);
-}
+    /* NAVIGATION */
 
+    .navigation {
+        flex: 1;
 
-/* NAVIGATION */
+        display: flex;
+        flex-direction: column;
 
-.navigation {
-	flex: 1;
+        gap: 6px;
 
-	display: flex;
-	flex-direction: column;
+        overflow-y: auto;
 
-	gap: 6px;
+        padding-right: 6px;
 
-	overflow-y: auto;
+        scrollbar-width: none;
+    }
 
-	padding-right: 6px;
+    .navigation::-webkit-scrollbar {
+        display: none;
+    }
 
-	scrollbar-width: none;
-}
+    .nav-item {
+        width: 100%;
+        box-sizing: border-box;
 
-.navigation::-webkit-scrollbar {
-	display: none;
-}
+        display: flex;
+        align-items: center;
 
-.nav-item {
-	width: 100%;
-	box-sizing: border-box;
+        gap: 14px;
 
-	display: flex;
-	align-items: center;
+        padding: 13px 14px;
 
-	gap: 14px;
+        border-radius: 13px;
 
-	padding: 13px 14px;
+        text-decoration: none;
 
-	border-radius: 13px;
+        color: white;
 
-	text-decoration: none;
+        font-size: 15px;
 
-	color: white;
+        font-weight: 600;
 
-	font-size: 15px;
+        transition: 0.25s;
+    }
 
-	font-weight: 600;
+    .nav-item svg {
+        color: white;
+        stroke: white;
+    }
 
-	transition: 0.25s;
-}
+    .nav-item:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: white;
+    }
 
-.nav-item svg {
-	color: white;
-	stroke: white;
-}
+    .nav-item.active {
+        background: #2563eb;
 
-.nav-item:hover {
-	background: rgba(255, 255, 255, 0.08);
-	color: white;
-}
+        color: white;
 
-.nav-item.active {
-	background: #2563EB;
+        box-shadow: 0 10px 25px rgba(37, 99, 235, 0.25);
+    }
 
-	color: white;
+    /* PROFILE */
 
-	box-shadow: 0 10px 25px rgba(37, 99, 235, 0.25);
-}
+    .profile-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
 
+        padding: 14px;
 
-/* PROFILE */
+        margin-top: 14px;
 
-.profile-card {
-	display: flex;
-	align-items: center;
-	gap: 12px;
+        background: rgba(255, 255, 255, 0.08);
 
-	padding: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
 
-	margin-top: 14px;
+        border-radius: 15px;
 
-	background: rgba(255, 255, 255, 0.08);
+        color: white;
+    }
 
-	border: 1px solid rgba(255, 255, 255, 0.12);
+    .avatar {
+        width: 44px;
+        height: 44px;
 
-	border-radius: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
 
-	color: white;
-}
+        border-radius: 50%;
 
-.avatar {
-	width: 44px;
-	height: 44px;
+        background: #2563eb;
 
-	display: flex;
-	align-items: center;
-	justify-content: center;
+        font-size: 20px;
+    }
 
-	border-radius: 50%;
+    .profile-card strong {
+        display: block;
 
-	background: #2563EB;
+        font-size: 14px;
+    }
 
-	font-size: 20px;
-}
+    .profile-card span {
+        display: block;
 
-.profile-card strong {
-	display: block;
+        margin-top: 3px;
 
-	font-size: 14px;
-}
+        font-size: 12px;
 
-.profile-card span {
-	display: block;
+        color: rgba(255, 255, 255, 0.7);
+    }
 
-	margin-top: 3px;
+    /* LOGOUT */
 
-	font-size: 12px;
+    .logout {
+        width: 100%;
 
-	color: rgba(255, 255, 255, 0.7);
-}
+        display: flex;
+        align-items: center;
 
+        gap: 14px;
 
-/* LOGOUT */
+        padding: 14px 18px;
 
-.logout {
-	width: 100%;
+        margin-top: 14px;
 
-	display: flex;
-	align-items: center;
+        border: none;
 
-	gap: 14px;
+        border-radius: 14px;
 
-	padding: 14px 18px;
+        background: white;
 
-	margin-top: 14px;
+        color: #fca5a5;
 
-	border: none;
+        font-size: 15px;
 
-	border-radius: 14px;
+        font-weight: 600;
 
-	background: white;
+        cursor: pointer;
+    }
 
-	color: #FCA5A5;
+    .logout svg {
+        color: #fca5a5;
+    }
 
-	font-size: 15px;
-
-	font-weight: 600;
-
-	cursor: pointer;
-}
-
-.logout svg {
-	color: #FCA5A5;
-}
-
-
-/* =========================
+    /* =========================
    MAIN
    ========================= */
 
-.main-content {
-	flex: 1;
+    .main-content {
+        flex: 1;
 
-	margin-left: 280px;
+        margin-left: 280px;
 
-	padding: 36px;
+        padding: 36px;
 
-	max-width: 1700px;
-}
+        max-width: 1700px;
+    }
 
-
-/* =========================
+    /* =========================
    HEADER
    ========================= */
 
-.header {
-	display: flex;
+    .header {
+        display: flex;
 
-	align-items: center;
+        align-items: center;
 
-	justify-content: space-between;
+        justify-content: space-between;
 
-	gap: 30px;
+        gap: 30px;
 
-	margin-bottom: 32px;
-}
+        margin-bottom: 32px;
+    }
 
-.welcome h1 {
-	margin: 0 0 8px;
+    .welcome h1 {
+        margin: 0 0 8px;
 
-	font-size: 34px;
+        font-size: 34px;
 
-	font-weight: 800;
+        font-weight: 800;
 
-	color: #0F172A;
-}
+        color: #0f172a;
+    }
 
-.welcome p {
-	margin: 0 0 6px;
+    .welcome p {
+        margin: 0 0 6px;
 
-	font-size: 16px;
+        font-size: 16px;
 
-	color: #64748B;
-}
+        color: #64748b;
+    }
 
-.welcome span {
-	font-size: 14px;
+    .welcome span {
+        font-size: 14px;
 
-	color: #94A3B8;
-}
+        color: #94a3b8;
+    }
 
-.header-actions {
-	display: flex;
-	align-items: center;
+    .header-actions {
+        display: flex;
+        align-items: center;
 
-	gap: 14px;
-}
+        gap: 14px;
+    }
 
-.search-box {
-	width: 280px;
-	height: 46px;
+    .search-box {
+        width: 280px;
+        height: 46px;
 
-	display: flex;
-	align-items: center;
+        display: flex;
+        align-items: center;
 
-	gap: 10px;
+        gap: 10px;
 
-	padding: 0 14px;
+        padding: 0 14px;
 
-	background: white;
+        background: white;
 
-	border: 1px solid #E2E8F0;
+        border: 1px solid #e2e8f0;
 
-	border-radius: 12px;
-}
+        border-radius: 12px;
+    }
 
-.search-box svg {
-	color: #64748B;
-}
+    .search-box svg {
+        color: #64748b;
+    }
 
-.search-box input {
-	width: 100%;
+    .search-box input {
+        width: 100%;
 
-	border: none;
-	outline: none;
+        border: none;
+        outline: none;
 
-	background: transparent;
+        background: transparent;
 
-	font-size: 14px;
-}
+        font-size: 14px;
+    }
 
-.icon-button {
-	width: 46px;
-	height: 46px;
+    .icon-button {
+        width: 46px;
+        height: 46px;
 
-	display: flex;
-	align-items: center;
-	justify-content: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
 
-	background: white;
+        background: white;
 
-	border: 1px solid #E2E8F0;
+        border: 1px solid #e2e8f0;
 
-	border-radius: 12px;
+        border-radius: 12px;
 
-	color: #475569;
+        color: #475569;
 
-	cursor: pointer;
-}
+        cursor: pointer;
+    }
 
-.profile {
-	display: flex;
-	align-items: center;
+    .profile {
+        display: flex;
+        align-items: center;
 
-	gap: 10px;
+        gap: 10px;
 
-	padding: 7px 12px;
+        padding: 7px 12px;
 
-	background: white;
+        background: white;
 
-	border: 1px solid #E2E8F0;
+        border: 1px solid #e2e8f0;
 
-	border-radius: 14px;
-}
+        border-radius: 14px;
+    }
 
-.profile > svg {
-	color: #2563EB;
-}
+    .profile > svg {
+        color: #2563eb;
+    }
 
-.profile strong {
-	display: block;
+    .profile strong {
+        display: block;
 
-	font-size: 14px;
+        font-size: 14px;
 
-	color: #0F172A;
-}
+        color: #0f172a;
+    }
 
-.profile span {
-	display: block;
+    .profile span {
+        display: block;
 
-	margin-top: 2px;
+        margin-top: 2px;
 
-	font-size: 12px;
+        font-size: 12px;
 
-	color: #64748B;
-}
+        color: #64748b;
+    }
 
-
-/* =========================
+    /* =========================
    KPI CARDS
    ========================= */
 
-.stats-grid {
-	display: grid;
+    .stats-grid {
+        display: grid;
 
-	grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(4, 1fr);
 
-	gap: 18px;
+        gap: 18px;
 
-	margin-bottom: 28px;
-}
+        margin-bottom: 28px;
+    }
 
-.stat-card {
-	display: flex;
-	align-items: center;
+    .stat-card {
+        display: flex;
+        align-items: center;
 
-	gap: 15px;
+        gap: 15px;
 
-	padding: 20px;
+        padding: 20px;
 
-	background: white;
+        background: white;
 
-	border: 1px solid #E2E8F0;
+        border: 1px solid #e2e8f0;
 
-	border-radius: 18px;
+        border-radius: 18px;
 
-	box-shadow: 0 4px 15px rgba(15, 23, 42, 0.04);
-}
+        box-shadow: 0 4px 15px rgba(15, 23, 42, 0.04);
+    }
 
-.stat-icon {
-	width: 46px;
-	height: 46px;
+    .stat-icon {
+        width: 46px;
+        height: 46px;
 
-	flex-shrink: 0;
+        flex-shrink: 0;
 
-	display: flex;
-	align-items: center;
-	justify-content: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
 
-	background: #EEF4FF;
+        background: #eef4ff;
 
-	color: #2563EB;
+        color: #2563eb;
 
-	border-radius: 13px;
-}
+        border-radius: 13px;
+    }
 
-.stat-card span {
-	display: block;
+    .stat-card span {
+        display: block;
 
-	margin-bottom: 5px;
+        margin-bottom: 5px;
 
-	font-size: 13px;
+        font-size: 13px;
 
-	color: #64748B;
-}
+        color: #64748b;
+    }
 
-.stat-card strong {
-	display: block;
+    .stat-card strong {
+        display: block;
 
-	font-size: 24px;
+        font-size: 24px;
 
-	font-weight: 800;
+        font-weight: 800;
 
-	color: #0F172A;
-}
+        color: #0f172a;
+    }
 
-
-/* =========================
+    /* =========================
    CARDS
    ========================= */
 
-.content-grid {
-	display: grid;
+    .content-grid {
+        display: grid;
 
-	grid-template-columns: 1.6fr 1.4fr;
+        grid-template-columns: 1.6fr 1.4fr;
 
-	gap: 28px;
+        gap: 28px;
 
-	margin-bottom: 28px;
-}
+        margin-bottom: 28px;
+    }
 
-.large-card {
-	background: white;
+    .large-card {
+        background: white;
 
-	border: 1px solid #E2E8F0;
+        border: 1px solid #e2e8f0;
 
-	border-radius: 18px;
+        border-radius: 18px;
 
-	padding: 24px;
+        padding: 24px;
 
-	box-shadow: 0 4px 15px rgba(15, 23, 42, 0.04);
+        box-shadow: 0 4px 15px rgba(15, 23, 42, 0.04);
 
-	margin-bottom: 28px;
-}
+        margin-bottom: 28px;
+    }
 
-.section-header {
-	display: flex;
-	align-items: center;
+    .section-header {
+        display: flex;
+        align-items: center;
 
-	justify-content: space-between;
+        justify-content: space-between;
 
-	gap: 20px;
+        gap: 20px;
 
-	margin-bottom: 20px;
-}
+        margin-bottom: 20px;
+    }
 
-.section-header h2 {
-	margin: 0 0 5px;
+    .section-header h2 {
+        margin: 0 0 5px;
 
-	font-size: 21px;
+        font-size: 21px;
 
-	font-weight: 800;
+        font-weight: 800;
 
-	color: #0F172A;
-}
+        color: #0f172a;
+    }
 
-.section-header p {
-	margin: 0;
+    .section-header p {
+        margin: 0;
 
-	font-size: 14px;
+        font-size: 14px;
 
-	color: #64748B;
-}
+        color: #64748b;
+    }
 
-.section-header button {
-	display: flex;
-	align-items: center;
+    .section-header button {
+        display: flex;
+        align-items: center;
 
-	gap: 7px;
+        gap: 7px;
 
-	border: none;
+        border: none;
 
-	background: transparent;
+        background: transparent;
 
-	color: #2563EB;
+        color: #2563eb;
 
-	font-weight: 700;
+        font-weight: 700;
 
-	cursor: pointer;
-}
+        cursor: pointer;
+    }
 
-
-/* =========================
+    /* =========================
    TIMETABLE
    ========================= */
 
-.schedule-list {
-	display: flex;
-	flex-direction: column;
+    .schedule-list {
+        display: flex;
+        flex-direction: column;
 
-	gap: 10px;
-}
+        gap: 10px;
+    }
 
-.schedule-row {
-	display: grid;
+    .schedule-row {
+        display: grid;
 
-	grid-template-columns: 130px 1fr 120px;
+        grid-template-columns: 130px 1fr 120px;
 
-	align-items: center;
+        align-items: center;
 
-	gap: 18px;
+        gap: 18px;
 
-	padding: 15px;
+        padding: 15px;
 
-	background: #F8FAFC;
+        background: #f8fafc;
 
-	border: 1px solid #E2E8F0;
+        border: 1px solid #e2e8f0;
 
-	border-radius: 13px;
-}
+        border-radius: 13px;
+    }
 
-.time {
-	display: flex;
-	align-items: center;
+    .time {
+        display: flex;
+        align-items: center;
 
-	gap: 7px;
+        gap: 7px;
 
-	color: #2563EB;
+        color: #2563eb;
 
-	font-size: 13px;
+        font-size: 13px;
 
-	font-weight: 700;
-}
+        font-weight: 700;
+    }
 
-.schedule-row strong {
-	display: block;
+    .schedule-row strong {
+        display: block;
 
-	font-size: 14px;
+        font-size: 14px;
 
-	color: #0F172A;
-}
+        color: #0f172a;
+    }
 
-.schedule-row span {
-	display: block;
+    .schedule-row span {
+        display: block;
 
-	margin-top: 4px;
+        margin-top: 4px;
 
-	font-size: 12px;
+        font-size: 12px;
 
-	color: #64748B;
-}
+        color: #64748b;
+    }
 
-.room {
-	text-align: right;
+    .room {
+        text-align: right;
 
-	font-size: 13px;
+        font-size: 13px;
 
-	color: #64748B;
-}
+        color: #64748b;
+    }
 
-
-/* =========================
+    /* =========================
    ATTENDANCE
    ========================= */
 
-.attendance-value strong {
-	display: block;
+    .attendance-value strong {
+        display: block;
 
-	font-size: 38px;
+        font-size: 38px;
 
-	color: #2563EB;
-}
+        color: #2563eb;
+    }
 
-.attendance-value span {
-	font-size: 13px;
+    .attendance-value span {
+        font-size: 13px;
 
-	color: #64748B;
-}
+        color: #64748b;
+    }
 
-.attendance-bar {
-	height: 9px;
+    .attendance-bar {
+        height: 9px;
 
-	margin: 15px 0 20px;
+        margin: 15px 0 20px;
 
-	background: #E2E8F0;
+        background: #e2e8f0;
 
-	border-radius: 20px;
+        border-radius: 20px;
 
-	overflow: hidden;
-}
+        overflow: hidden;
+    }
 
-.attendance-bar div {
-	height: 100%;
+    .attendance-bar div {
+        height: 100%;
 
-	background: #2563EB;
+        background: #2563eb;
 
-	border-radius: 20px;
-}
+        border-radius: 20px;
+    }
 
-.attendance-stats {
-	display: grid;
+    .attendance-stats {
+        display: grid;
 
-	grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(3, 1fr);
 
-	gap: 10px;
-}
+        gap: 10px;
+    }
 
-.attendance-stats div {
-	padding: 13px;
+    .attendance-stats div {
+        padding: 13px;
 
-	text-align: center;
+        text-align: center;
 
-	background: #F8FAFC;
+        background: #f8fafc;
 
-	border-radius: 12px;
-}
+        border-radius: 12px;
+    }
 
-.attendance-stats strong {
-	display: block;
+    .attendance-stats strong {
+        display: block;
 
-	font-size: 18px;
+        font-size: 18px;
 
-	color: #0F172A;
-}
+        color: #0f172a;
+    }
 
-.attendance-stats span {
-	font-size: 12px;
+    .attendance-stats span {
+        font-size: 12px;
 
-	color: #64748B;
-}
+        color: #64748b;
+    }
 
-.attendance-note {
-	display: flex;
+    .attendance-note {
+        display: flex;
 
-	align-items: center;
+        align-items: center;
 
-	gap: 8px;
+        gap: 8px;
 
-	margin-top: 16px;
+        margin-top: 16px;
 
-	padding: 11px;
+        padding: 11px;
 
-	background: #ECFDF5;
+        background: #ecfdf5;
 
-	color: #059669;
+        color: #059669;
 
-	border-radius: 10px;
+        border-radius: 10px;
 
-	font-size: 12px;
-}
+        font-size: 12px;
+    }
 
-
-/* =========================
+    /* =========================
    EXAMS
    ========================= */
 
-.exam-list {
-	display: flex;
+    .exam-list {
+        display: flex;
 
-	flex-direction: column;
+        flex-direction: column;
 
-	gap: 12px;
-}
+        gap: 12px;
+    }
 
-.exam-item {
-	display: flex;
+    .exam-item {
+        display: flex;
 
-	align-items: center;
+        align-items: center;
 
-	gap: 14px;
+        gap: 14px;
 
-	padding: 15px;
+        padding: 15px;
 
-	background: #F8FAFC;
+        background: #f8fafc;
 
-	border: 1px solid #E2E8F0;
+        border: 1px solid #e2e8f0;
 
-	border-radius: 13px;
-}
+        border-radius: 13px;
+    }
 
-.exam-icon {
-	width: 43px;
-	height: 43px;
+    .exam-icon {
+        width: 43px;
+        height: 43px;
 
-	display: flex;
+        display: flex;
 
-	align-items: center;
-	justify-content: center;
+        align-items: center;
+        justify-content: center;
 
-	background: #EEF4FF;
+        background: #eef4ff;
 
-	color: #2563EB;
+        color: #2563eb;
 
-	border-radius: 12px;
-}
+        border-radius: 12px;
+    }
 
-.exam-info strong {
-	display: block;
+    .exam-info strong {
+        display: block;
 
-	font-size: 14px;
+        font-size: 14px;
 
-	color: #0F172A;
-}
+        color: #0f172a;
+    }
 
-.exam-info span {
-	display: block;
+    .exam-info span {
+        display: block;
 
-	margin-top: 4px;
+        margin-top: 4px;
 
-	font-size: 12px;
+        font-size: 12px;
 
-	color: #64748B;
-}
+        color: #64748b;
+    }
 
-
-/* =========================
+    /* =========================
    RESULTS
    ========================= */
 
-.results-list {
-	display: flex;
+    .results-list {
+        display: flex;
 
-	flex-direction: column;
-}
+        flex-direction: column;
+    }
 
-.result-row {
-	display: flex;
+    .result-row {
+        display: flex;
 
-	align-items: center;
+        align-items: center;
 
-	justify-content: space-between;
+        justify-content: space-between;
 
-	padding: 14px 0;
+        padding: 14px 0;
 
-	border-bottom: 1px solid #E2E8F0;
-}
+        border-bottom: 1px solid #e2e8f0;
+    }
 
-.result-row:last-child {
-	border-bottom: none;
-}
+    .result-row:last-child {
+        border-bottom: none;
+    }
 
-.result-row strong {
-	display: block;
+    .result-row strong {
+        display: block;
 
-	font-size: 14px;
+        font-size: 14px;
 
-	color: #0F172A;
-}
+        color: #0f172a;
+    }
 
-.result-row span {
-	display: block;
+    .result-row span {
+        display: block;
 
-	margin-top: 4px;
+        margin-top: 4px;
 
-	font-size: 12px;
+        font-size: 12px;
 
-	color: #64748B;
-}
+        color: #64748b;
+    }
 
-.grade {
-	padding: 7px 11px;
+    .grade {
+        padding: 7px 11px;
 
-	background: #ECFDF5;
+        background: #ecfdf5;
 
-	color: #059669;
+        color: #059669;
 
-	border-radius: 9px;
+        border-radius: 9px;
 
-	font-size: 12px;
+        font-size: 12px;
 
-	font-weight: 800;
-}
+        font-weight: 800;
+    }
 
-
-/* =========================
+    /* =========================
    ASSIGNMENTS
    ========================= */
 
-.table {
-	width: 100%;
-}
+    .table {
+        width: 100%;
+    }
 
-.table-header,
-.table-row {
-	display: grid;
+    .table-header,
+    .table-row {
+        display: grid;
 
-	grid-template-columns: 1.5fr 1fr 0.8fr 0.8fr;
+        grid-template-columns: 1.5fr 1fr 0.8fr 0.8fr;
 
-	align-items: center;
+        align-items: center;
 
-	gap: 15px;
+        gap: 15px;
 
-	padding: 14px 12px;
-}
+        padding: 14px 12px;
+    }
 
-.table-header {
-	background: #F8FAFC;
+    .table-header {
+        background: #f8fafc;
 
-	border-radius: 10px;
+        border-radius: 10px;
 
-	font-size: 12px;
+        font-size: 12px;
 
-	font-weight: 700;
+        font-weight: 700;
 
-	color: #64748B;
-}
+        color: #64748b;
+    }
 
-.table-row {
-	border-bottom: 1px solid #E2E8F0;
+    .table-row {
+        border-bottom: 1px solid #e2e8f0;
 
-	font-size: 13px;
+        font-size: 13px;
 
-	color: #64748B;
-}
+        color: #64748b;
+    }
 
-.table-row strong {
-	color: #0F172A;
-}
+    .table-row strong {
+        color: #0f172a;
+    }
 
-.table-row > span:last-child {
-	width: fit-content;
+    .table-row > span:last-child {
+        width: fit-content;
 
-	padding: 6px 10px;
+        padding: 6px 10px;
 
-	border-radius: 8px;
+        border-radius: 8px;
 
-	background: #EEF4FF;
+        background: #eef4ff;
 
-	color: #2563EB;
+        color: #2563eb;
 
-	font-size: 11px;
+        font-size: 11px;
 
-	font-weight: 700;
-}
+        font-weight: 700;
+    }
 
-.table-row > span.pending {
-	background: #FFF7ED;
+    .table-row > span.pending {
+        background: #fff7ed;
 
-	color: #EA580C;
-}
+        color: #ea580c;
+    }
 
-.table-row > span.submitted {
-	background: #ECFDF5;
+    .table-row > span.submitted {
+        background: #ecfdf5;
 
-	color: #059669;
-}
+        color: #059669;
+    }
 
-
-/* =========================
+    /* =========================
    LEAVE
    ========================= */
 
-.apply-button {
-	color: #2563EB !important;
-}
+    .apply-button {
+        color: #2563eb !important;
+    }
 
-.leave-balance {
-	display: grid;
+    .leave-balance {
+        display: grid;
 
-	grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr 1fr;
 
-	gap: 16px;
+        gap: 16px;
 
-	margin-bottom: 18px;
-}
+        margin-bottom: 18px;
+    }
 
-.leave-balance > div {
-	padding: 18px;
+    .leave-balance > div {
+        padding: 18px;
 
-	background: #F8FAFC;
+        background: #f8fafc;
 
-	border-radius: 14px;
-}
+        border-radius: 14px;
+    }
 
-.leave-balance span {
-	display: block;
+    .leave-balance span {
+        display: block;
 
-	margin-bottom: 7px;
+        margin-bottom: 7px;
 
-	font-size: 13px;
+        font-size: 13px;
 
-	color: #64748B;
-}
+        color: #64748b;
+    }
 
-.leave-balance strong {
-	font-size: 24px;
+    .leave-balance strong {
+        font-size: 24px;
 
-	color: #0F172A;
-}
+        color: #0f172a;
+    }
 
-.leave-list {
-	display: flex;
+    .leave-list {
+        display: flex;
 
-	flex-direction: column;
-}
+        flex-direction: column;
+    }
 
-.leave-item {
-	display: flex;
+    .leave-item {
+        display: flex;
 
-	align-items: center;
+        align-items: center;
 
-	justify-content: space-between;
+        justify-content: space-between;
 
-	padding: 15px 0;
+        padding: 15px 0;
 
-	border-bottom: 1px solid #E2E8F0;
-}
+        border-bottom: 1px solid #e2e8f0;
+    }
 
-.leave-item:last-child {
-	border-bottom: none;
-}
+    .leave-item:last-child {
+        border-bottom: none;
+    }
 
-.leave-item strong {
-	display: block;
+    .leave-item strong {
+        display: block;
 
-	font-size: 14px;
+        font-size: 14px;
 
-	color: #0F172A;
-}
+        color: #0f172a;
+    }
 
-.leave-item div span {
-	display: block;
+    .leave-item div span {
+        display: block;
 
-	margin-top: 4px;
+        margin-top: 4px;
 
-	font-size: 12px;
+        font-size: 12px;
 
-	color: #64748B;
-}
+        color: #64748b;
+    }
 
-.leave-status {
-	padding: 7px 10px;
+    .leave-status {
+        padding: 7px 10px;
 
-	background: #FFF7ED;
+        background: #fff7ed;
 
-	color: #EA580C;
+        color: #ea580c;
 
-	border-radius: 9px;
+        border-radius: 9px;
 
-	font-size: 11px;
+        font-size: 11px;
 
-	font-weight: 700;
-}
+        font-weight: 700;
+    }
 
-.leave-status.approved {
-	background: #ECFDF5;
+    .leave-status.approved {
+        background: #ecfdf5;
 
-	color: #059669;
-}
+        color: #059669;
+    }
 
-
-/* =========================
+    /* =========================
    AI ASSISTANT
    ========================= */
 
-.ai-card {
-	background: linear-gradient(
-		135deg,
-		#EEF4FF,
-		white
-	);
+    .ai-card {
+        background: linear-gradient(135deg, #eef4ff, white);
 
-	border-color: #D8E5FF;
-}
+        border-color: #d8e5ff;
+    }
 
-.ai-heading {
-	display: flex;
+    .ai-heading {
+        display: flex;
 
-	align-items: center;
+        align-items: center;
 
-	gap: 14px;
+        gap: 14px;
 
-	margin-bottom: 20px;
-}
+        margin-bottom: 20px;
+    }
 
-.ai-icon {
-	width: 48px;
-	height: 48px;
+    .ai-icon {
+        width: 48px;
+        height: 48px;
 
-	display: flex;
+        display: flex;
 
-	align-items: center;
-	justify-content: center;
+        align-items: center;
+        justify-content: center;
 
-	background: #2563EB;
+        background: #2563eb;
 
-	color: white;
+        color: white;
 
-	border-radius: 13px;
-}
+        border-radius: 13px;
+    }
 
-.ai-heading h2 {
-	margin: 0 0 4px;
+    .ai-heading h2 {
+        margin: 0 0 4px;
 
-	font-size: 21px;
+        font-size: 21px;
 
-	color: #0F172A;
-}
+        color: #0f172a;
+    }
 
-.ai-heading p {
-	margin: 0;
+    .ai-heading p {
+        margin: 0;
 
-	font-size: 13px;
+        font-size: 13px;
 
-	color: #64748B;
-}
+        color: #64748b;
+    }
 
-.prompt-list {
-	display: grid;
+    .prompt-list {
+        display: grid;
 
-	grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr 1fr;
 
-	gap: 10px;
-}
+        gap: 10px;
+    }
 
-.prompt {
-	display: flex;
+    .prompt {
+        display: flex;
 
-	align-items: center;
+        align-items: center;
 
-	justify-content: space-between;
+        justify-content: space-between;
 
-	gap: 10px;
+        gap: 10px;
 
-	padding: 13px 14px;
+        padding: 13px 14px;
 
-	background: white;
+        background: white;
 
-	border: 1px solid #D8E5FF;
+        border: 1px solid #d8e5ff;
 
-	border-radius: 10px;
+        border-radius: 10px;
 
-	color: #2563EB;
+        color: #2563eb;
 
-	font-size: 12px;
+        font-size: 12px;
 
-	text-align: left;
+        text-align: left;
 
-	cursor: pointer;
-}
+        cursor: pointer;
+    }
 
-.prompt:hover {
-	background: #2563EB;
+    .prompt:hover {
+        background: #2563eb;
 
-	color: white;
-}
+        color: white;
+    }
 
-
-/* =========================
+    /* =========================
    RESPONSIVE
    ========================= */
 
-@media (max-width: 1350px) {
-	.stats-grid {
-		grid-template-columns: repeat(2, 1fr);
-	}
-}
+    @media (max-width: 1350px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
 
-@media (max-width: 1100px) {
-	.sidebar {
-		width: 250px;
-	}
+    @media (max-width: 1100px) {
+        .sidebar {
+            width: 250px;
+        }
 
-	.main-content {
-		margin-left: 250px;
+        .main-content {
+            margin-left: 250px;
 
-		padding: 24px;
-	}
+            padding: 24px;
+        }
 
-	.content-grid {
-		grid-template-columns: 1fr;
-	}
-}
+        .content-grid {
+            grid-template-columns: 1fr;
+        }
+    }
 
-@media (max-width: 800px) {
-	.sidebar {
-		position: relative;
+    @media (max-width: 800px) {
+        .sidebar {
+            position: relative;
 
-		width: 100%;
+            width: 100%;
 
-		height: auto;
+            height: auto;
 
-		max-height: none;
-	}
+            max-height: none;
+        }
 
-	.dashboard {
-		display: block;
-	}
+        .dashboard {
+            display: block;
+        }
 
-	.main-content {
-		margin-left: 0;
+        .main-content {
+            margin-left: 0;
 
-		padding: 20px;
-	}
+            padding: 20px;
+        }
 
-	.header {
-		flex-direction: column;
+        .header {
+            flex-direction: column;
 
-		align-items: flex-start;
-	}
+            align-items: flex-start;
+        }
 
-	.header-actions {
-		width: 100%;
-	}
+        .header-actions {
+            width: 100%;
+        }
 
-	.search-box {
-		flex: 1;
+        .search-box {
+            flex: 1;
 
-		width: auto;
-	}
+            width: auto;
+        }
 
-	.stats-grid {
-		grid-template-columns: 1fr;
-	}
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
 
-	.content-grid {
-		grid-template-columns: 1fr;
-	}
+        .content-grid {
+            grid-template-columns: 1fr;
+        }
 
-	.schedule-row {
-		grid-template-columns: 1fr;
+        .schedule-row {
+            grid-template-columns: 1fr;
 
-		gap: 8px;
-	}
+            gap: 8px;
+        }
 
-	.room {
-		text-align: left;
-	}
+        .room {
+            text-align: left;
+        }
 
-	.table {
-		overflow-x: auto;
-	}
+        .table {
+            overflow-x: auto;
+        }
 
-	.table-header,
-	.table-row {
-		min-width: 650px;
-	}
+        .table-header,
+        .table-row {
+            min-width: 650px;
+        }
 
-	.leave-balance {
-		grid-template-columns: 1fr;
-	}
+        .leave-balance {
+            grid-template-columns: 1fr;
+        }
 
-	.prompt-list {
-		grid-template-columns: 1fr;
-	}
-}
+        .prompt-list {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>

@@ -26,7 +26,7 @@
     // -------------------------------------------------------
     // Parent Details
     // -------------------------------------------------------
-
+    let parentId = $state('');
     let fatherName = $state('');
     let fatherOccupation = $state('');
     let motherName = $state('');
@@ -225,6 +225,7 @@ function handleSubmit() {
         previousSchoolName,
         previousAcademicMarks,
 
+        parentId,
         fatherName,
         fatherOccupation,
         motherName,
@@ -481,6 +482,16 @@ function handleSubmit() {
 <div class="form-card">
 
     <h2>Parent Details</h2>
+    <div class="form-group">
+    <label for="parentId">Parent ID</label>
+
+    <input
+        id="parentId"
+        type="text"
+        bind:value={parentId}
+        placeholder="e.g. PAR001"
+    />
+</div>
 
     <div class="form-grid">
 
