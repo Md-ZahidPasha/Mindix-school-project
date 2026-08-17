@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Upload, FileText, Sparkles } from '@lucide/svelte';
+	import { API } from '$lib/config/api';
 
 	let selectedFile = $state<File | null>(null);
 
@@ -8,6 +9,7 @@
 	let isReading = $state(false);
 let statusMessage = $state('');
 let statusType = $state<'success' | 'error' | 'info' | ''>('');
+let extracted = $state<Record<string, unknown> | null>(null);
     
 	function handleFileChange(event: Event) {
 		const input = event.target as HTMLInputElement;
@@ -31,13 +33,18 @@ let statusType = $state<'success' | 'error' | 'info' | ''>('');
 	statusType = 'info';
 	statusMessage = 'Reading document...';
 
-	await new Promise(resolve => setTimeout(resolve, 2000));
-
-	isReading = false;
-
-	statusType = 'info';
-	statusMessage =
-		'AI extraction is not available yet. Waiting for backend integration.';
+	try {
+		const token = localStorage.getItem('access_token');
+		if (!token) throw new Error('Please sign in again to analyze a document.');
+		const form = new FormData(); form.append('file', selectedFile);
+		const response = await fetch(API.documentExtract, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+		const result = await response.json();
+		if (!response.ok) throw new Error(result.detail || 'Document analysis failed.');
+		extracted = result.data;
+		statusType = 'success'; statusMessage = `Extracted ${result.data.document_type || 'document'} details. Review the fields below.`;
+	} catch (error) {
+		statusType = 'error'; statusMessage = error instanceof Error ? error.message : 'Document analysis failed.';
+	} finally { isReading = false; }
 
 }
 </script>
@@ -126,7 +133,11 @@ let statusType = $state<'success' | 'error' | 'info' | ''>('');
 
 	</p>
 
-{/if}
+	{/if}
+
+	{#if extracted}
+		<div class="extracted"><strong>Extracted fields</strong>{#each Object.entries((extracted.data as Record<string, unknown>) || {}) as [key, value]}<div><span>{key.replaceAll('_', ' ')}</span><input value={String(value)} aria-label={key} /></div>{/each}</div>
+	{/if}
 
 </section>
 
@@ -157,6 +168,11 @@ let statusType = $state<'success' | 'error' | 'info' | ''>('');
 	color:#0F172A;
 
 }
+.extracted { margin-top: 20px; padding: 16px; border-radius: 12px; background: #f8fafc; border: 1px solid #e2e8f0; }
+.extracted > strong { display: block; margin-bottom: 10px; color: #0f172a; }
+.extracted div { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-top: 8px; align-items: center; font-size: 13px; }
+.extracted span { text-transform: capitalize; color: #475569; }
+.extracted input { min-width: 0; padding: 8px; border: 1px solid #cbd5e1; border-radius: 7px; }
 
 .subtitle{
 

@@ -1,1337 +1,443 @@
 <script lang="ts">
-    import PrincipalSidebar from '$lib/components/principal/PrincipalSidebar.svelte';
+	import { FileText, CheckCircle2, XCircle, Clock, ShieldCheck, RefreshCw } from '@lucide/svelte';
+	import {
+		getCertificates,
+		reviewCertificate,
+		type Certificate
+	} from '$lib/services/certificates';
 
-    type CertificateStatus = 'Issued' | 'Pending';
+	let certificates = $state<Certificate[]>([]);
+	let isLoading = $state(true);
+	let error = $state('');
+	let success = $state('');
 
-    type Student = {
-        id: string;
-        name: string;
-        className: string;
-        section: string;
-        rollNumber: string;
-    };
+	async function load() {
+		isLoading = true;
+		error = '';
+		try {
+			certificates = await getCertificates();
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Unable to load certificates.';
+		} finally {
+			isLoading = false;
+		}
+	}
 
-    type CertificateRecord = {
-        id: number;
-        studentName: string;
-        studentId: string;
-        certificateType: string;
-        issuedDate: string;
-        status: CertificateStatus;
-    };
+	async function approve(cert: Certificate) {
+		error = '';
+		success = '';
+		try {
+			const number = `CERT-${Date.now().toString().slice(-8)}`;
+			await reviewCertificate(cert.id, {
+				status: 'approved',
+				certificate_number: number,
+				issue_date: new Date().toISOString().slice(0, 10)
+			});
+			success = `Certificate approved (${number}).`;
+			await load();
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Unable to approve certificate.';
+		}
+	}
 
-    let certificateType = $state('');
-    let studentId = $state('');
-    let issueDate = $state('2026-08-12');
-    let purpose = $state('');
+	async function reject(cert: Certificate) {
+		const reason = window.prompt('Reason for rejection:', 'Documentation incomplete');
+		if (reason === null) return;
+		error = '';
+		success = '';
+		try {
+			await reviewCertificate(cert.id, { status: 'rejected', rejection_reason: reason });
+			success = 'Certificate request rejected.';
+			await load();
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Unable to reject certificate.';
+		}
+	}
 
-    let selectedStudent = $state<Student | null>(null);
-    let message = $state('');
-    let messageType = $state<'success' | 'error'>('success');
+	const pending = $derived(certificates.filter((c) => (c.status || '').toLowerCase() === 'pending'));
+	const approved = $derived(certificates.filter((c) => ['approved', 'issued'].includes((c.status || '').toLowerCase())));
+	const rejected = $derived(certificates.filter((c) => (c.status || '').toLowerCase() === 'rejected'));
 
-    const students: Student[] = [
-        {
-            id: 'STU1001',
-            name: 'Rahul Sharma',
-            className: '10',
-            section: 'A',
-            rollNumber: '12'
-        },
-        {
-            id: 'STU1002',
-            name: 'Sana Khan',
-            className: '10',
-            section: 'A',
-            rollNumber: '18'
-        },
-        {
-            id: 'STU1003',
-            name: 'Arjun Reddy',
-            className: '9',
-            section: 'B',
-            rollNumber: '07'
-        },
-        {
-            id: 'STU1004',
-            name: 'Ayesha Begum',
-            className: '8',
-            section: 'A',
-            rollNumber: '21'
-        }
-    ];
-
-    let certificateRecords = $state<CertificateRecord[]>([
-        {
-            id: 1,
-            studentName: 'Rahul Sharma',
-            studentId: 'STU1001',
-            certificateType: 'Bonafide Certificate',
-            issuedDate: '05 Aug 2026',
-            status: 'Issued'
-        },
-        {
-            id: 2,
-            studentName: 'Sana Khan',
-            studentId: 'STU1002',
-            certificateType: 'Character Certificate',
-            issuedDate: '03 Aug 2026',
-            status: 'Issued'
-        },
-        {
-            id: 3,
-            studentName: 'Arjun Reddy',
-            studentId: 'STU1003',
-            certificateType: 'Study Certificate',
-            issuedDate: '01 Aug 2026',
-            status: 'Issued'
-        },
-        {
-            id: 4,
-            studentName: 'Ayesha Begum',
-            studentId: 'STU1004',
-            certificateType: 'Transfer Certificate',
-            issuedDate: '-',
-            status: 'Pending'
-        }
-    ]);
-
-    let totalIssued = $derived(
-        certificateRecords.filter(
-            (certificate) => certificate.status === 'Issued'
-        ).length
-    );
-
-    let pendingCertificates = $derived(
-        certificateRecords.filter(
-            (certificate) => certificate.status === 'Pending'
-        ).length
-    );
-
-    let thisYear = $derived(
-        certificateRecords.filter(
-            (certificate) => certificate.status === 'Issued'
-        ).length
-    );
-
-    function findStudent() {
-        message = '';
-
-        const id = studentId.trim().toUpperCase();
-
-        if (!id) {
-            selectedStudent = null;
-            message = 'Please enter a Student ID.';
-            messageType = 'error';
-            return;
-        }
-
-        const student = students.find(
-            (item) => item.id.toUpperCase() === id
-        );
-
-        if (!student) {
-            selectedStudent = null;
-            message = 'Student not found. Please check the Student ID.';
-            messageType = 'error';
-            return;
-        }
-
-        selectedStudent = student;
-        message = '';
-    }
-
-    function generateCertificate() {
-        message = '';
-
-        if (!selectedStudent) {
-            message = 'Please find and verify the student first.';
-            messageType = 'error';
-            return;
-        }
-
-        if (!certificateType) {
-            message = 'Please select a certificate type.';
-            messageType = 'error';
-            return;
-        }
-
-        if (!issueDate) {
-            message = 'Please select the issue date.';
-            messageType = 'error';
-            return;
-        }
-
-        const formattedDate = new Date(issueDate).toLocaleDateString(
-            'en-GB',
-            {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric'
-            }
-        );
-
-        certificateRecords = [
-            {
-                id: Date.now(),
-                studentName: selectedStudent.name,
-                studentId: selectedStudent.id,
-                certificateType,
-                issuedDate: formattedDate,
-                status: 'Issued'
-            },
-            ...certificateRecords
-        ];
-
-        message = `${certificateType} generated successfully for ${selectedStudent.name}.`;
-        messageType = 'success';
-
-        certificateType = '';
-        purpose = '';
-        studentId = '';
-        selectedStudent = null;
-    }
-
-    function clearStudent() {
-        selectedStudent = null;
-        studentId = '';
-        message = '';
-    }
-
-    function viewCertificate(certificate: CertificateRecord) {
-        message = `${certificate.certificateType} for ${certificate.studentName} is ready to view.`;
-        messageType = 'success';
-    }
-
-    function downloadCertificate(certificate: CertificateRecord) {
-        message = `Demo download started for ${certificate.certificateType} - ${certificate.studentName}.`;
-        messageType = 'success';
-    }
+	$effect(() => {
+		load();
+	});
 </script>
 
-
-<div class="principal-layout">
-
-    <PrincipalSidebar />
-
-    <main class="main-content">
-
-        <div class="certificates-page">
-
-            <!-- PAGE HEADER -->
-
-            <header class="page-header">
-
-                <div>
-                    <h1>Certificates</h1>
-
-                    <p>
-                        Generate, issue and manage student certificates.
-                    </p>
-                </div>
-
-            </header>
-
-
-            <!-- SUMMARY CARDS -->
-
-            <section class="summary-grid">
-
-                <div class="summary-card">
-
-                    <div class="summary-icon issued">
-                        ✓
-                    </div>
-
-                    <div>
-                        <span>Total Issued</span>
-                        <strong>{totalIssued}</strong>
-                    </div>
-
-                </div>
-
-
-                <div class="summary-card">
-
-                    <div class="summary-icon pending">
-                        ⏳
-                    </div>
-
-                    <div>
-                        <span>Pending</span>
-                        <strong>{pendingCertificates}</strong>
-                    </div>
-
-                </div>
-
-
-                <div class="summary-card">
-
-                    <div class="summary-icon year">
-                        ▣
-                    </div>
-
-                    <div>
-                        <span>Issued This Year</span>
-                        <strong>{thisYear}</strong>
-                    </div>
-
-                </div>
-
-            </section>
-
-
-            <!-- ISSUE CERTIFICATE -->
-
-            <section class="issue-card">
-
-                <div class="section-heading">
-
-                    <div class="heading-icon">
-                        ▤
-                    </div>
-
-                    <div>
-                        <h2>Issue Certificate</h2>
-
-                        <p>
-                            Find a student and generate the required certificate.
-                        </p>
-                    </div>
-
-                </div>
-
-
-                <!-- FIND STUDENT -->
-
-                <div class="student-search">
-
-                    <div class="field student-id-field">
-
-                        <label for="student-id">
-                            Student ID
-                        </label>
-
-                        <input
-                            id="student-id"
-                            type="text"
-                            bind:value={studentId}
-                            placeholder="Enter Student ID e.g. STU1001"
-                            onkeydown={(event) => {
-                                if (event.key === 'Enter') {
-                                    findStudent();
-                                }
-                            }}
-                        />
-
-                    </div>
-
-
-                    <button
-                        type="button"
-                        class="find-button"
-                        onclick={findStudent}
-                    >
-                        Find Student
-                    </button>
-
-                </div>
-
-
-                {#if selectedStudent}
-
-                    <div class="student-details">
-
-                        <div class="student-header">
-
-                            <div class="student-avatar">
-                                {selectedStudent.name.charAt(0)}
-                            </div>
-
-                            <div>
-                                <span>STUDENT FOUND</span>
-
-                                <h3>
-                                    {selectedStudent.name}
-                                </h3>
-
-                                <p>
-                                    {selectedStudent.id}
-                                </p>
-                            </div>
-
-                            <button
-                                type="button"
-                                class="clear-button"
-                                onclick={clearStudent}
-                            >
-                                Clear
-                            </button>
-
-                        </div>
-
-
-                        <div class="student-info-grid">
-
-                            <div>
-                                <span>Student ID</span>
-                                <strong>{selectedStudent.id}</strong>
-                            </div>
-
-                            <div>
-                                <span>Class</span>
-                                <strong>{selectedStudent.className}</strong>
-                            </div>
-
-                            <div>
-                                <span>Section</span>
-                                <strong>{selectedStudent.section}</strong>
-                            </div>
-
-                            <div>
-                                <span>Roll Number</span>
-                                <strong>{selectedStudent.rollNumber}</strong>
-                            </div>
-
-                        </div>
-
-                    </div>
-
-
-                    <!-- CERTIFICATE FORM -->
-
-                    <div class="certificate-form">
-
-                        <div class="field">
-
-                            <label for="certificate-type">
-                                Certificate Type
-                            </label>
-
-                            <select
-                                id="certificate-type"
-                                bind:value={certificateType}
-                            >
-                                <option value="">
-                                    Select Certificate
-                                </option>
-
-                                <option value="Bonafide Certificate">
-                                    Bonafide Certificate
-                                </option>
-
-                                <option value="Transfer Certificate">
-                                    Transfer Certificate
-                                </option>
-
-                                <option value="Character Certificate">
-                                    Character Certificate
-                                </option>
-
-                                <option value="Study Certificate">
-                                    Study Certificate
-                                </option>
-
-                                <option value="Course Completion Certificate">
-                                    Course Completion Certificate
-                                </option>
-
-                                <option value="Participation Certificate">
-                                    Participation Certificate
-                                </option>
-
-                                <option value="Achievement Certificate">
-                                    Achievement Certificate
-                                </option>
-
-                                <option value="Attendance Certificate">
-                                    Attendance Certificate
-                                </option>
-
-                            </select>
-
-                        </div>
-
-
-                        <div class="field">
-
-                            <label for="issue-date">
-                                Issue Date
-                            </label>
-
-                            <input
-                                id="issue-date"
-                                type="date"
-                                bind:value={issueDate}
-                            />
-
-                        </div>
-
-
-                        <div class="field purpose-field">
-
-                            <label for="purpose">
-                                Purpose
-                            </label>
-
-                            <input
-                                id="purpose"
-                                type="text"
-                                bind:value={purpose}
-                                placeholder="Enter purpose if required..."
-                            />
-
-                        </div>
-
-
-                        <button
-                            type="button"
-                            class="generate-button"
-                            onclick={generateCertificate}
-                        >
-                            Generate Certificate
-                        </button>
-
-                    </div>
-
-                {:else}
-
-                    <div class="find-student-info">
-                        <div class="info-icon">
-                            i
-                        </div>
-
-                        <p>
-                            Enter a Student ID and click
-                            <strong>Find Student</strong>
-                            to view student details and issue a certificate.
-                        </p>
-                    </div>
-
-                {/if}
-
-
-                {#if message}
-
-                    <div
-                        class:success-message={messageType === 'success'}
-                        class:error-message={messageType === 'error'}
-                        class="message"
-                    >
-                        {message}
-                    </div>
-
-                {/if}
-
-            </section>
-
-
-            <!-- CERTIFICATE HISTORY -->
-
-            <section class="history-section">
-
-                <div class="section-title">
-
-                    <div>
-                        <h2>Certificate History</h2>
-
-                        <p>
-                            View certificates issued by the institution.
-                        </p>
-                    </div>
-
-                    <span class="record-count">
-                        {certificateRecords.length} Records
-                    </span>
-
-                </div>
-
-
-                <div class="history-card">
-
-                    <div class="table-wrapper">
-
-                        <table>
-
-                            <thead>
-
-                                <tr>
-                                    <th>Student</th>
-                                    <th>Student ID</th>
-                                    <th>Certificate</th>
-                                    <th>Issued Date</th>
-                                    <th>Status</th>
-                                    <th>Action</th>
-                                </tr>
-
-                            </thead>
-
-
-                            <tbody>
-
-                                {#each certificateRecords as certificate}
-
-                                    <tr>
-
-                                        <td>
-
-                                            <div class="student-cell">
-
-                                                <div class="small-avatar">
-                                                    {certificate.studentName.charAt(0)}
-                                                </div>
-
-                                                <strong>
-                                                    {certificate.studentName}
-                                                </strong>
-
-                                            </div>
-
-                                        </td>
-
-
-                                        <td>
-                                            {certificate.studentId}
-                                        </td>
-
-
-                                        <td>
-                                            {certificate.certificateType}
-                                        </td>
-
-
-                                        <td>
-                                            {certificate.issuedDate}
-                                        </td>
-
-
-                                        <td>
-
-                                            {#if certificate.status === 'Issued'}
-
-                                                <span class="status issued-status">
-                                                    Issued
-                                                </span>
-
-                                            {:else}
-
-                                                <span class="status pending-status">
-                                                    Pending
-                                                </span>
-
-                                            {/if}
-
-                                        </td>
-
-
-                                        <td>
-
-                                            <div class="table-actions">
-
-                                                <button
-                                                    type="button"
-                                                    onclick={() =>
-                                                        viewCertificate(certificate)
-                                                    }
-                                                >
-                                                    View
-                                                </button>
-
-                                                {#if certificate.status === 'Issued'}
-
-                                                    <button
-                                                        type="button"
-                                                        onclick={() =>
-                                                            downloadCertificate(
-                                                                certificate
-                                                            )
-                                                        }
-                                                    >
-                                                        Download
-                                                    </button>
-
-                                                {/if}
-
-                                            </div>
-
-                                        </td>
-
-                                    </tr>
-
-                                {/each}
-
-                            </tbody>
-
-                        </table>
-
-                    </div>
-
-                </div>
-
-            </section>
-
-        </div>
-
-    </main>
-
+<div class="cert-page">
+	<div class="page-header">
+		<div class="title-section">
+			<div class="title-icon">
+				<FileText size={26} />
+			</div>
+			<div>
+				<h1>Certificates</h1>
+				<p>Review and approve student certificate requests</p>
+			</div>
+		</div>
+		<button class="refresh-btn" type="button" onclick={load}>
+			<RefreshCw size={15} /> Refresh
+		</button>
+	</div>
+
+	{#if error}
+		<div class="error-box">{error}</div>
+	{/if}
+	{#if success}
+		<div class="success-box">{success}</div>
+	{/if}
+
+	<div class="summary-grid">
+		<div class="summary-card">
+			<div class="summary-icon pending-icon"><Clock size={20} /></div>
+			<div><span>Pending</span><strong>{pending.length}</strong></div>
+		</div>
+		<div class="summary-card">
+			<div class="summary-icon approved-icon"><CheckCircle2 size={20} /></div>
+			<div><span>Approved</span><strong>{approved.length}</strong></div>
+		</div>
+		<div class="summary-card">
+			<div class="summary-icon rejected-icon"><XCircle size={20} /></div>
+			<div><span>Rejected</span><strong>{rejected.length}</strong></div>
+		</div>
+	</div>
+
+	<section class="card">
+		<h2>Certificate Requests</h2>
+		{#if isLoading}
+			<p class="empty">Loading...</p>
+		{:else if certificates.length === 0}
+			<p class="empty">No certificate requests yet.</p>
+		{:else}
+			<div class="cert-list">
+				{#each certificates as cert}
+					{@const status = (cert.status || 'pending').toLowerCase()}
+					<div class="cert-item">
+						<div class="cert-icon"><FileText size={20} /></div>
+						<div class="cert-info">
+							<strong>{cert.student_name || 'Unknown student'}</strong>
+							<span>Roll: {cert.student_roll || '—'} · Class: {cert.class_name || '—'} {cert.section || ''}</span>
+							<span class="cert-type">{cert.certificate_name}{cert.purpose ? ` · ${cert.purpose}` : ''}</span>
+							{#if cert.rejection_reason}
+								<span class="reject-reason">Reason: {cert.rejection_reason}</span>
+							{/if}
+						</div>
+						<div class="cert-status">
+							<span class="status-badge status-{status}">
+								{(cert.status || 'pending').toUpperCase()}
+							</span>
+							{#if cert.certificate_number}
+								<span class="cert-no"><ShieldCheck size={13} /> {cert.certificate_number}</span>
+							{/if}
+							<span class="cert-date">{cert.created_at ? new Date(cert.created_at).toLocaleDateString() : ''}</span>
+						</div>
+						{#if status === 'pending'}
+							<div class="actions">
+								<button class="approve-btn" type="button" onclick={() => approve(cert)}>Approve</button>
+								<button class="reject-btn" type="button" onclick={() => reject(cert)}>Reject</button>
+							</div>
+						{/if}
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</section>
 </div>
 
-
 <style>
-
-    .principal-layout {
-        display: flex;
-        min-height: 100vh;
-        background: #f7f9fc;
-    }
-
-
-    .main-content {
-        flex: 1;
-        min-width: 0;
-    }
-
-
-    .certificates-page {
-        min-height: 100vh;
-        padding: 28px 32px;
-        box-sizing: border-box;
-        background: #f7f9fc;
-    }
-
-
-    /* HEADER */
-
-    .page-header {
-        margin-bottom: 24px;
-    }
-
-
-    .page-header h1 {
-        margin: 0;
-        color: #14213d;
-        font-size: 30px;
-    }
-
-
-    .page-header p {
-        margin: 7px 0 0;
-        color: #64748b;
-        font-size: 15px;
-    }
-
-
-    /* SUMMARY */
-
-    .summary-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 16px;
-        margin-bottom: 22px;
-    }
-
-
-    .summary-card {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        padding: 20px;
-        background: white;
-        border: 1px solid #e5eaf2;
-        border-radius: 16px;
-        box-shadow:
-            0 4px 14px
-            rgba(15, 23, 42, 0.03);
-    }
-
-
-    .summary-icon {
-        width: 44px;
-        height: 44px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 12px;
-        font-weight: 800;
-    }
-
-
-    .summary-icon.issued {
-        background: #f0fdf4;
-        color: #16a34a;
-    }
-
-
-    .summary-icon.pending {
-        background: #fff7ed;
-        color: #ea580c;
-    }
-
-
-    .summary-icon.year {
-        background: #eef4ff;
-        color: #2563eb;
-    }
-
-
-    .summary-card span {
-        display: block;
-        margin-bottom: 4px;
-        color: #64748b;
-        font-size: 12px;
-    }
-
-
-    .summary-card strong {
-        color: #14213d;
-        font-size: 23px;
-    }
-
-
-    /* ISSUE CARD */
-
-    .issue-card {
-        padding: 24px;
-        background: white;
-        border: 1px solid #e5eaf2;
-        border-radius: 16px;
-        box-shadow:
-            0 4px 14px
-            rgba(15, 23, 42, 0.03);
-    }
-
-
-    .section-heading {
-        display: flex;
-        align-items: center;
-        gap: 13px;
-        margin-bottom: 22px;
-    }
-
-
-    .heading-icon {
-        width: 44px;
-        height: 44px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 12px;
-        background: #eef4ff;
-        color: #2563eb;
-        font-size: 20px;
-    }
-
-
-    .section-heading h2 {
-        margin: 0;
-        color: #14213d;
-        font-size: 19px;
-    }
-
-
-    .section-heading p {
-        margin: 4px 0 0;
-        color: #64748b;
-        font-size: 12px;
-    }
-
-
-    /* SEARCH */
-
-    .student-search {
-        display: flex;
-        align-items: flex-end;
-        gap: 12px;
-    }
-
-
-    .student-id-field {
-        flex: 1;
-    }
-
-
-    .field label {
-        display: block;
-        margin-bottom: 7px;
-        color: #334155;
-        font-size: 12px;
-        font-weight: 600;
-    }
-
-
-    .field input,
-    .field select {
-        width: 100%;
-        height: 42px;
-        padding: 0 11px;
-        box-sizing: border-box;
-        border: 1px solid #dbe3ef;
-        border-radius: 9px;
-        background: white;
-        color: #1e293b;
-        font-size: 13px;
-        outline: none;
-    }
-
-
-    .field input:focus,
-    .field select:focus {
-        border-color: #2563eb;
-        box-shadow:
-            0 0 0 3px
-            rgba(37, 99, 235, 0.1);
-    }
-
-
-    .find-button {
-        height: 42px;
-        padding: 0 24px;
-        border: none;
-        border-radius: 9px;
-        background: #2563eb;
-        color: white;
-        font-size: 13px;
-        font-weight: 600;
-        cursor: pointer;
-    }
-
-
-    .find-button:hover {
-        background: #1d4ed8;
-    }
-
-
-    /* STUDENT DETAILS */
-
-    .student-details {
-        margin-top: 20px;
-        padding: 18px;
-        border: 1px solid #dbe3ef;
-        border-radius: 12px;
-        background: #f8fafc;
-    }
-
-
-    .student-header {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-
-    .student-avatar {
-        width: 46px;
-        height: 46px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        background: #e8f0ff;
-        color: #2563eb;
-        font-size: 18px;
-        font-weight: 700;
-    }
-
-
-    .student-header > div:nth-child(2) {
-        flex: 1;
-    }
-
-
-    .student-header span {
-        display: block;
-        margin-bottom: 3px;
-        color: #16a34a;
-        font-size: 9px;
-        font-weight: 700;
-        letter-spacing: 0.6px;
-    }
-
-
-    .student-header h3 {
-        margin: 0;
-        color: #14213d;
-        font-size: 15px;
-    }
-
-
-    .student-header p {
-        margin: 3px 0 0;
-        color: #64748b;
-        font-size: 11px;
-    }
-
-
-    .clear-button {
-        padding: 7px 11px;
-        border: 1px solid #dbe3ef;
-        border-radius: 8px;
-        background: white;
-        color: #64748b;
-        font-size: 11px;
-        cursor: pointer;
-    }
-
-
-    .clear-button:hover {
-        background: #f1f5f9;
-    }
-
-
-    .student-info-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 10px;
-        margin-top: 16px;
-    }
-
-
-    .student-info-grid > div {
-        padding: 11px;
-        border: 1px solid #e5eaf2;
-        border-radius: 9px;
-        background: white;
-    }
-
-
-    .student-info-grid span {
-        display: block;
-        margin-bottom: 5px;
-        color: #94a3b8;
-        font-size: 10px;
-    }
-
-
-    .student-info-grid strong {
-        color: #334155;
-        font-size: 12px;
-    }
-
-
-    /* CERTIFICATE FORM */
-
-    .certificate-form {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1.4fr;
-        gap: 14px;
-        margin-top: 18px;
-        padding-top: 18px;
-        border-top: 1px solid #edf1f6;
-    }
-
-
-    .purpose-field {
-        min-width: 0;
-    }
-
-
-    .generate-button {
-        grid-column: span 3;
-        height: 42px;
-        border: none;
-        border-radius: 9px;
-        background: #2563eb;
-        color: white;
-        font-size: 13px;
-        font-weight: 600;
-        cursor: pointer;
-    }
-
-
-    .generate-button:hover {
-        background: #1d4ed8;
-    }
-
-
-    /* INFO */
-
-    .find-student-info {
-        display: flex;
-        align-items: center;
-        gap: 11px;
-        margin-top: 18px;
-        padding: 13px;
-        border-radius: 10px;
-        background: #f8fafc;
-        border: 1px solid #e5eaf2;
-    }
-
-
-    .info-icon {
-        width: 30px;
-        height: 30px;
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        background: #eef4ff;
-        color: #2563eb;
-        font-size: 13px;
-        font-weight: 700;
-    }
-
-
-    .find-student-info p {
-        margin: 0;
-        color: #64748b;
-        font-size: 11px;
-    }
-
-
-    /* MESSAGE */
-
-    .message {
-        margin-top: 14px;
-        padding: 11px 13px;
-        border-radius: 9px;
-        font-size: 11px;
-    }
-
-
-    .success-message {
-        background: #f0fdf4;
-        border: 1px solid #bbf7d0;
-        color: #15803d;
-    }
-
-
-    .error-message {
-        background: #fef2f2;
-        border: 1px solid #fecaca;
-        color: #dc2626;
-    }
-
-
-    /* HISTORY */
-
-    .history-section {
-        margin-top: 28px;
-    }
-
-
-    .section-title {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 15px;
-        margin-bottom: 14px;
-    }
-
-
-    .section-title h2 {
-        margin: 0;
-        color: #14213d;
-        font-size: 20px;
-    }
-
-
-    .section-title p {
-        margin: 5px 0 0;
-        color: #64748b;
-        font-size: 13px;
-    }
-
-
-    .record-count {
-        padding: 7px 11px;
-        border-radius: 8px;
-        background: #eef4ff;
-        color: #2563eb;
-        font-size: 11px;
-        font-weight: 700;
-    }
-
-
-    .history-card {
-        overflow: hidden;
-        background: white;
-        border: 1px solid #e5eaf2;
-        border-radius: 16px;
-        box-shadow:
-            0 4px 14px
-            rgba(15, 23, 42, 0.03);
-    }
-
-
-    .table-wrapper {
-        overflow-x: auto;
-    }
-
-
-    table {
-        width: 100%;
-        min-width: 850px;
-        border-collapse: collapse;
-    }
-
-
-    th {
-        padding: 15px 18px;
-        background: #f8fafc;
-        color: #64748b;
-        font-size: 11px;
-        font-weight: 700;
-        text-align: left;
-        border-bottom: 1px solid #e5eaf2;
-    }
-
-
-    td {
-        padding: 15px 18px;
-        color: #64748b;
-        font-size: 12px;
-        border-bottom: 1px solid #edf1f6;
-    }
-
-
-    tr:last-child td {
-        border-bottom: none;
-    }
-
-
-    .student-cell {
-        display: flex;
-        align-items: center;
-        gap: 9px;
-    }
-
-
-    .small-avatar {
-        width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        background: #e8f0ff;
-        color: #2563eb;
-        font-size: 12px;
-        font-weight: 700;
-    }
-
-
-    .student-cell strong {
-        color: #14213d;
-        font-size: 12px;
-    }
-
-
-    .status {
-        display: inline-block;
-        padding: 6px 9px;
-        border-radius: 7px;
-        font-size: 10px;
-        font-weight: 700;
-    }
-
-
-    .issued-status {
-        background: #f0fdf4;
-        color: #16a34a;
-    }
-
-
-    .pending-status {
-        background: #fff7ed;
-        color: #ea580c;
-    }
-
-
-    .table-actions {
-        display: flex;
-        gap: 7px;
-    }
-
-
-    .table-actions button {
-        padding: 6px 9px;
-        border: 1px solid #dbe3ef;
-        border-radius: 7px;
-        background: white;
-        color: #2563eb;
-        font-size: 10px;
-        font-weight: 600;
-        cursor: pointer;
-    }
-
-
-    .table-actions button:hover {
-        background: #eef4ff;
-    }
-
-
-    /* RESPONSIVE */
-
-    @media (max-width: 950px) {
-
-        .certificates-page {
-            padding: 22px;
-        }
-
-
-        .student-info-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-
-
-        .certificate-form {
-            grid-template-columns: 1fr 1fr;
-        }
-
-
-        .generate-button {
-            grid-column: span 2;
-        }
-
-    }
-
-
-    @media (max-width: 700px) {
-
-        .summary-grid {
-            grid-template-columns: 1fr;
-        }
-
-
-        .student-search {
-            flex-direction: column;
-            align-items: stretch;
-        }
-
-
-        .find-button {
-            width: 100%;
-        }
-
-
-        .certificate-form {
-            grid-template-columns: 1fr;
-        }
-
-
-        .generate-button {
-            grid-column: span 1;
-        }
-
-    }
-
-
-    @media (max-width: 500px) {
-
-        .certificates-page {
-            padding: 18px;
-        }
-
-
-        .student-info-grid {
-            grid-template-columns: 1fr;
-        }
-
-
-        .student-header {
-            align-items: flex-start;
-        }
-
-    }
-
+	.cert-page {
+		min-height: 100vh;
+		padding: 36px;
+		box-sizing: border-box;
+		background: #f8fafc;
+	}
+
+	.page-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 20px;
+		margin-bottom: 24px;
+	}
+
+	.title-section {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+	}
+
+	.title-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 50px;
+		height: 50px;
+		color: #2563eb;
+		background: #eff6ff;
+		border-radius: 13px;
+	}
+
+	.page-header h1 {
+		margin: 0;
+		color: #0f172a;
+		font-size: 28px;
+		font-weight: 800;
+	}
+
+	.page-header p {
+		margin: 5px 0 0;
+		color: #64748b;
+		font-size: 13px;
+	}
+
+	.refresh-btn {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 10px 16px;
+		border: 1px solid #e2e8f0;
+		border-radius: 10px;
+		background: white;
+		color: #334155;
+		font-size: 13px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.summary-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 16px;
+		margin-bottom: 20px;
+	}
+
+	.summary-card {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		padding: 20px;
+		background: white;
+		border: 1px solid #e2e8f0;
+		border-radius: 15px;
+	}
+
+	.summary-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 44px;
+		height: 44px;
+		border-radius: 11px;
+		flex-shrink: 0;
+	}
+
+	.pending-icon {
+		color: #d97706;
+		background: #fffbeb;
+	}
+
+	.approved-icon {
+		color: #16a34a;
+		background: #f0fdf4;
+	}
+
+	.rejected-icon {
+		color: #dc2626;
+		background: #fef2f2;
+	}
+
+	.summary-card span {
+		display: block;
+		margin-bottom: 5px;
+		color: #64748b;
+		font-size: 11px;
+	}
+
+	.summary-card strong {
+		color: #0f172a;
+		font-size: 22px;
+		font-weight: 800;
+	}
+
+	.card {
+		padding: 24px;
+		background: white;
+		border: 1px solid #e2e8f0;
+		border-radius: 16px;
+	}
+
+	.card h2 {
+		margin: 0 0 18px;
+		color: #0f172a;
+		font-size: 17px;
+		font-weight: 700;
+	}
+
+	.error-box {
+		padding: 12px 16px;
+		margin-bottom: 16px;
+		background: #fef2f2;
+		border: 1px solid #fecaca;
+		border-radius: 10px;
+		color: #b91c1c;
+		font-size: 13px;
+	}
+
+	.success-box {
+		padding: 12px 16px;
+		margin-bottom: 16px;
+		background: #f0fdf4;
+		border: 1px solid #bbf7d0;
+		border-radius: 10px;
+		color: #15803d;
+		font-size: 13px;
+	}
+
+	.cert-list {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	.cert-item {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		padding: 14px;
+		border: 1px solid #e2e8f0;
+		border-radius: 12px;
+		background: #f8fafc;
+	}
+
+	.cert-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 42px;
+		height: 42px;
+		border-radius: 10px;
+		color: #2563eb;
+		background: #eff6ff;
+		flex-shrink: 0;
+	}
+
+	.cert-info {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+		min-width: 0;
+	}
+
+	.cert-info strong {
+		color: #0f172a;
+		font-size: 14px;
+	}
+
+	.cert-info span {
+		color: #64748b;
+		font-size: 12px;
+	}
+
+	.cert-type {
+		color: #334155 !important;
+	}
+
+	.reject-reason {
+		color: #b91c1c !important;
+	}
+
+	.cert-status {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 5px;
+	}
+
+	.status-badge {
+		padding: 5px 10px;
+		border-radius: 20px;
+		font-size: 11px;
+		font-weight: 700;
+	}
+
+	.status-pending {
+		background: #fef3c7;
+		color: #b45309;
+	}
+
+	.status-approved,
+	.status-issued {
+		background: #dcfce7;
+		color: #15803d;
+	}
+
+	.status-rejected {
+		background: #fee2e2;
+		color: #b91c1c;
+	}
+
+	.cert-no {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		color: #64748b;
+		font-size: 11px;
+	}
+
+	.cert-date {
+		color: #94a3b8;
+		font-size: 11px;
+	}
+
+	.actions {
+		display: flex;
+		gap: 8px;
+		flex-shrink: 0;
+	}
+
+	.approve-btn,
+	.reject-btn {
+		padding: 8px 13px;
+		border-radius: 9px;
+		font-size: 12px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.approve-btn {
+		border: none;
+		background: #16a34a;
+		color: white;
+	}
+
+	.reject-btn {
+		border: 1px solid #fecaca;
+		background: white;
+		color: #dc2626;
+	}
+
+	.empty {
+		color: #94a3b8;
+		font-size: 13px;
+		text-align: center;
+		padding: 30px 0;
+	}
+
+	@media (max-width: 900px) {
+		.cert-page {
+			padding: 18px;
+		}
+
+		.summary-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.cert-item {
+			flex-wrap: wrap;
+		}
+
+		.cert-status {
+			align-items: flex-start;
+		}
+	}
 </style>

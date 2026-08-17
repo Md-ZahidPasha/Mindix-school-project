@@ -6,7 +6,6 @@ from urllib.parse import quote
 
 import httpx
 from google import genai
-from supabase import create_client
 
 from app.core.config import settings
 from app.schemas.document import DocumentExtractionResponse
@@ -16,9 +15,10 @@ from app.schemas.document import DocumentExtractionResponse
 # GEMINI CLIENT
 # ============================================================
 
-client = genai.Client(
-    api_key=settings.GEMINI_API_KEY
-)
+def _get_gemini_client():
+    if not settings.GEMINI_API_KEY:
+        raise RuntimeError("GEMINI_API_KEY is not configured. Add it to the backend environment.")
+    return genai.Client(api_key=settings.GEMINI_API_KEY)
 
 
 # ============================================================
@@ -108,8 +108,9 @@ Filename:
 """ + filename
 
     try:
+        client = _get_gemini_client()
         response = client.models.generate_content(
-            model="gemini-3.6-flash",
+            model=settings.GEMINI_MODEL,
             contents=[
                 prompt,
                 {
@@ -137,10 +138,14 @@ Filename:
 # SUPABASE CLIENT
 # ============================================================
 
-supabase = create_client(
-    settings.SUPABASE_URL,
-    settings.SUPABASE_SERVICE_ROLE_KEY,
-)
+def _get_supabase_client():
+    if not settings.SUPABASE_URL or not settings.SUPABASE_SERVICE_ROLE_KEY:
+        raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required to save documents.")
+    try:
+        from supabase import create_client
+    except ImportError as error:
+        raise RuntimeError("Supabase client package is not installed.") from error
+    return create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
 
 
 # ============================================================
@@ -333,7 +338,7 @@ def save_verified_document(
         # ----------------------------------------------------
 
         response = (
-            supabase
+            _get_supabase_client()
             .table("documents")
             .insert(document_record)
             .execute()

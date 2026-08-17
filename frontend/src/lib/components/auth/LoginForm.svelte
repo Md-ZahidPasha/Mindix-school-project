@@ -9,16 +9,26 @@
 
 	let loginId = $state('');
 	let password = $state('');
+	let institutionName = $state('');
 
 	let errors = $state({
 		loginId: '',
-		password: ''
+		password: '',
+		institutionName: ''
 	});
 
 	function validateForm(): boolean {
 		errors.loginId = '';
 		errors.password = '';
+		errors.institutionName = '';
 		serverError = '';
+
+		if (
+			(selectedRole === 'Staff' || selectedRole === 'Employee') &&
+			!institutionName.trim()
+		) {
+			errors.institutionName = 'Institution name is required';
+		}
 
 		if (!loginId.trim()) {
 			if (selectedRole === 'Admin') {
@@ -28,9 +38,9 @@
 			} else if (selectedRole === 'Parent') {
 				errors.loginId = 'Parent ID is required';
 			} else if (selectedRole === 'Staff') {
-				errors.loginId = 'Principal / Teacher ID is required';
+				errors.loginId = 'Email is required';
 			} else {
-				errors.loginId = 'Employee ID is required';
+				errors.loginId = 'Employee email is required';
 			}
 		}
 
@@ -45,31 +55,6 @@
 
 	async function handleSubmit() {
 		if (!validateForm()) {
-			return;
-		}
-
-		/*
-		 * Backend login endpoints currently available:
-		 *
-		 * Admin:
-		 * /api/auth/login
-		 *
-		 * Student:
-		 * /api/auth/student-login
-		 *
-		 * Parent:
-		 * /api/auth/parent-login
-		 *
-		 * Principal / Teacher and Employee:
-		 * Backend login endpoints are not implemented yet.
-		 */
-
-		if (
-			selectedRole === 'Staff' ||
-			selectedRole === 'Employee'
-		) {
-			serverError =
-				'Login for this role is not available yet.';
 			return;
 		}
 
@@ -111,7 +96,7 @@
 			// ==========================================
 			// PARENT LOGIN
 			// ==========================================
-			else {
+			else if (selectedRole === 'Parent') {
 				loginEndpoint = API.login.replace(
 					/\/login$/,
 					'/parent-login'
@@ -119,6 +104,22 @@
 
 				requestBody = {
 					parent_id: loginId.trim(),
+					password: password
+				};
+			}
+
+			// ==========================================
+			// STAFF / EMPLOYEE LOGIN
+			// ==========================================
+			else {
+				loginEndpoint = API.login.replace(
+					/\/login$/,
+					'/staff-login'
+				);
+
+				requestBody = {
+					institution_name: institutionName.trim(),
+					email: loginId.trim(),
 					password: password
 				};
 			}
@@ -167,6 +168,30 @@
 				result.role
 			);
 
+			localStorage.setItem(
+				'institution_id',
+				result.institution_id
+			);
+
+			localStorage.setItem(
+				'full_name',
+				result.full_name || ''
+			);
+
+			if (result.employee_id) {
+				localStorage.setItem(
+					'employee_id',
+					result.employee_id
+				);
+			}
+
+			if (result.teacher_id) {
+				localStorage.setItem(
+					'teacher_id',
+					result.teacher_id
+				);
+			}
+
 			// ==========================================
 			// STUDENT-SPECIFIC INFORMATION
 			// ==========================================
@@ -176,20 +201,6 @@
 					'student_id',
 					result.student_id
 				);
-
-				localStorage.setItem(
-					'institution_id',
-					result.institution_id
-				);
-
-				localStorage.setItem(
-					'full_name',
-					result.full_name
-				);
-
-				/*
-				 * Redirect to Student Dashboard.
-				 */
 
 				window.location.href =
 					'/student-dashboard';
@@ -207,20 +218,6 @@
 					result.parent_id
 				);
 
-				localStorage.setItem(
-					'institution_id',
-					result.institution_id
-				);
-
-				localStorage.setItem(
-					'full_name',
-					result.full_name
-				);
-
-				/*
-				 * Redirect to Parent Dashboard.
-				 */
-
 				window.location.href =
 					'/parent-dashboard';
 
@@ -232,23 +229,33 @@
 			// ==========================================
 
 			localStorage.setItem(
-				'institution_id',
-				result.institution_id
-			);
-
-			localStorage.setItem(
 				'institution_name',
 				result.institution_name
 			);
 
 			/*
-			 * Redirect according to Admin role.
+			 * Redirect according to role.
 			 */
 
 			switch (result.role?.toLowerCase()) {
 				case 'principal':
 					window.location.href =
 						'/principal-dashboard';
+					break;
+
+				case 'teacher':
+					window.location.href =
+						'/teacher-dashboard';
+					break;
+
+				case 'staff':
+					window.location.href =
+						'/employee-dashboard';
+					break;
+
+				case 'employee':
+					window.location.href =
+						'/employee-dashboard';
 					break;
 
 				case 'admin':
@@ -276,9 +283,11 @@
 
 		loginId = '';
 		password = '';
+		institutionName = '';
 
 		errors.loginId = '';
 		errors.password = '';
+		errors.institutionName = '';
 		serverError = '';
 
 		showPassword = false;
@@ -350,6 +359,34 @@
 		}}
 	>
 
+		{#if selectedRole === 'Staff' || selectedRole === 'Employee'}
+			<div class="form-group">
+
+				<label for="institutionName">
+					Institution Name
+				</label>
+
+				<input
+					id="institutionName"
+					type="text"
+					bind:value={institutionName}
+					disabled={isLoading}
+					oninput={() => {
+						errors.institutionName = '';
+						serverError = '';
+					}}
+					placeholder="Enter your institution name"
+				/>
+
+				{#if errors.institutionName}
+					<p class="error-message">
+						{errors.institutionName}
+					</p>
+				{/if}
+
+			</div>
+		{/if}
+
 		<div class="form-group">
 
 			<label for="loginId">
@@ -360,8 +397,8 @@
 						: selectedRole === 'Parent'
 							? 'Parent ID'
 							: selectedRole === 'Staff'
-								? 'Principal / Teacher ID'
-								: 'Employee ID'}
+								? 'Email'
+								: 'Email'}
 			</label>
 
 			<input
@@ -381,8 +418,8 @@
 							: selectedRole === 'Parent'
 								? 'Enter parent ID (e.g. PAR001)'
 								: selectedRole === 'Staff'
-									? 'Enter principal / teacher ID'
-									: 'Enter employee ID'
+									? 'Enter your email'
+									: 'Enter your email'
 				}
 			/>
 

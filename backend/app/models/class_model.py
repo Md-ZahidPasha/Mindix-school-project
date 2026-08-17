@@ -21,15 +21,15 @@ class Class(Base):
         ForeignKey("institutions.id"),
         nullable=False
     )
-
     name = Column(
+        "class_name",
         String,
         nullable=False
     )
 
     section = Column(
         String,
-        nullable=True
+        nullable=False
     )
 
     created_at = Column(

@@ -20,26 +20,37 @@
 		{
 			icon: LayoutDashboard,
 			label: 'Dashboard',
+			href: '/dashboard',
 			active: true
+		},
+		{
+			icon: CalendarCheck,
+			label: 'Timetable',
+			href: '/timetable',
+			active: false
 		},
 		{
 			icon: UserCog,
 			label: 'Principal',
+			href: '/dashboard/principal',
 			active: false
 		},
 		{
 			icon: Users,
 			label: 'Teachers',
+			href: '/dashboard/teacher',
 			active: false
 		},
 		{
 			icon: GraduationCap,
 			label: 'Students',
+			href: '/dashboard/student',
 			active: false
 		},
 		{
 			icon: Users,
 			label: 'Parents',
+			href: '/dashboard/parent',
 			active: false
 		},
 		{
@@ -98,18 +109,24 @@
 	<nav>
 
 		{#each menuItems as item}
-
-			<div
-				class:item-active={item.active}
-				class="menu-item"
-			>
-
-				<item.icon size={22} />
-
-				<span>{item.label}</span>
-
-			</div>
-
+			{#if item.href}
+				<a
+					href={item.href}
+					class:item-active={item.active}
+					class="menu-item"
+				>
+					<item.icon size={22} />
+					<span>{item.label}</span>
+				</a>
+			{:else}
+				<div
+					class:item-active={item.active}
+					class="menu-item"
+				>
+					<item.icon size={22} />
+					<span>{item.label}</span>
+				</div>
+			{/if}
 		{/each}
 
 	</nav>
@@ -191,6 +208,7 @@ nav {
 	color: c.$text-secondary;
 	transition: .25s;
 	font-weight: 600;
+	text-decoration: none;
 }
 
 .menu-item:hover {

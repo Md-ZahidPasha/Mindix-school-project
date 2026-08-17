@@ -1,386 +1,453 @@
 <script lang="ts">
-    import {
-        Award,
-        CalendarDays,
-        FileText,
-        Search,
-        Download
-    } from '@lucide/svelte';
+	import { FileText, Download, CheckCircle2, Clock, XCircle, ShieldCheck } from '@lucide/svelte';
+	import {
+		getCertificates,
+		requestCertificate,
+		type Certificate
+	} from '$lib/services/certificates';
+
+	let certificates = $state<Certificate[]>([]);
+	let isLoading = $state(true);
+	let error = $state('');
+	let success = $state('');
+
+	let showForm = $state(false);
+	let submitting = $state(false);
+	let formError = $state('');
+	let certificateName = $state('Bonafide');
+	let certificateType = $state('bonafide');
+	let purpose = $state('');
+
+	const certificateTypes = [
+		{ name: 'Bonafide', type: 'bonafide' },
+		{ name: 'School Leaving Certificate', type: 'leaving' },
+		{ name: 'Character Certificate', type: 'character' },
+		{ name: 'Transfer Certificate', type: 'transfer' }
+	];
+
+	async function load() {
+		isLoading = true;
+		error = '';
+		try {
+			certificates = await getCertificates();
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Unable to load certificates.';
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	async function submitRequest() {
+		formError = '';
+		submitting = true;
+		try {
+			const studentId = localStorage.getItem('student_id');
+			const institutionId = localStorage.getItem('institution_id');
+			if (!studentId || !institutionId) {
+				formError = 'Student scope is missing. Please sign in again.';
+				return;
+			}
+			await requestCertificate({
+				student_id: studentId,
+				institution_id: institutionId,
+				certificate_name: certificateName,
+				certificate_type: certificateType,
+				purpose: purpose || undefined
+			});
+			success = 'Certificate request submitted successfully.';
+			showForm = false;
+			purpose = '';
+			await load();
+		} catch (err) {
+			formError = err instanceof Error ? err.message : 'Unable to submit request.';
+		} finally {
+			submitting = false;
+		}
+	}
+
+	function statusIcon(status: string | null | undefined) {
+		const s = (status || '').toLowerCase();
+		if (s === 'approved' || s === 'issued') return CheckCircle2;
+		if (s === 'rejected') return XCircle;
+		return Clock;
+	}
+
+	function printCertificate(cert: Certificate) {
+		const w = window.open('', '_blank');
+		if (!w) return;
+		w.document.write(`<html><head><title>${cert.certificate_name}</title><style>
+			body{font-family:Georgia,serif;margin:0;padding:40px;color:#1e293b;}
+			.school{text-align:center;font-size:22px;font-weight:bold;letter-spacing:1px;}
+			.addr{text-align:center;color:#64748b;font-size:13px;margin-top:4px;}
+			.line{height:2px;background:#2563eb;margin:16px 0 28px;}
+			.title{text-align:center;font-size:26px;font-weight:bold;text-decoration:underline;margin-bottom:30px;}
+			.body{font-size:15px;line-height:2;max-width:680px;margin:0 auto;}
+			.footer{margin-top:50px;max-width:680px;margin-left:auto;margin-right:auto;display:flex;justify-content:space-between;}
+			.sign{font-size:14px;}
+			</style></head><body>
+			<div class="school">${cert.institution_name || ''}</div>
+			<div class="addr">${cert.institution_name ? '' : ''}</div>
+			<div class="line"></div>
+			<div class="title">${cert.certificate_name.toUpperCase()}</div>
+			<div class="body">
+			<p>Certificate No: <strong>${cert.certificate_number || ''}</strong></p>
+			<p>This is to certify that <strong>${cert.student_name || ''}</strong> (Roll No: ${cert.student_roll || ''})
+			of <strong>${cert.class_name || ''}</strong> ${cert.section ? 'Section ' + cert.section : ''}
+			is a bonafide student of ${cert.institution_name || 'the institution'}.</p>
+			<p>Purpose: ${cert.purpose || ''}</p>
+			<p>Date of issue: <strong>${cert.issue_date || ''}</strong></p>
+			</div>
+			<div class="footer"><div class="sign">Student</div><div class="sign">Authorized Signatory</div></div>
+			</body></html>`);
+		w.document.close();
+	}
+
+	$effect(() => {
+		load();
+	});
 </script>
 
-<svelte:head>
-    <title>Certificates | PaperBuddy</title>
-</svelte:head>
+<div class="cert-page">
+	<div class="page-header">
+		<div class="title-section">
+			<div class="title-icon">
+				<FileText size={26} />
+			</div>
+			<div>
+				<h1>Certificates</h1>
+				<p>Request bonafide and school certificates</p>
+			</div>
+		</div>
+		<button class="primary-btn" type="button" onclick={() => (showForm = !showForm)}>
+			{showForm ? 'Cancel' : '+ New Request'}
+		</button>
+	</div>
 
-<div class="certificates-page">
-    <!-- =========================
-         PAGE HEADER
-         ========================= -->
+	{#if error}
+		<div class="error-box">{error}</div>
+	{/if}
+	{#if success}
+		<div class="success-box">{success}</div>
+	{/if}
 
-    <div class="page-header">
-        <div>
-            <h1>Certificates</h1>
-            <p>View your certificates and achievements.</p>
-        </div>
+	{#if showForm}
+		<section class="card request-card">
+			<h2>Request a Certificate</h2>
+			<div class="form-grid">
+				<div class="form-group">
+					<label>Certificate Type</label>
+					<select bind:value={certificateName}>
+						{#each certificateTypes as t}
+							<option value={t.name}>{t.name}</option>
+						{/each}
+					</select>
+				</div>
+				<div class="form-group">
+					<label>Purpose</label>
+					<input type="text" bind:value={purpose} placeholder="e.g. Bank loan, admission, government exam" />
+				</div>
+			</div>
+			{#if formError}<p class="form-error">{formError}</p>{/if}
+			<button class="primary-btn" type="button" onclick={submitRequest} disabled={submitting}>
+				{submitting ? 'Submitting...' : 'Submit Request'}
+			</button>
+		</section>
+	{/if}
 
-        <div class="search-box">
-            <Search size={17} />
-
-            <input
-                type="text"
-                placeholder="Search certificates..."
-                aria-label="Search certificates"
-            />
-        </div>
-    </div>
-
-    <!-- =========================
-         SUMMARY
-         ========================= -->
-
-    <div class="summary-grid">
-        <div class="summary-card">
-            <div class="summary-icon">
-                <Award size={21} />
-            </div>
-
-            <div>
-                <span>Total Certificates</span>
-                <strong>—</strong>
-            </div>
-        </div>
-
-        <div class="summary-card">
-            <div class="summary-icon issue-icon">
-                <CalendarDays size={21} />
-            </div>
-
-            <div>
-                <span>Recently Issued</span>
-                <strong>—</strong>
-            </div>
-        </div>
-
-        <div class="summary-card">
-            <div class="summary-icon type-icon">
-                <FileText size={21} />
-            </div>
-
-            <div>
-                <span>Certificate Types</span>
-                <strong>—</strong>
-            </div>
-        </div>
-    </div>
-
-    <!-- =========================
-         CERTIFICATE LIST
-         ========================= -->
-
-    <section class="certificates-card">
-        <div class="card-header">
-            <div>
-                <h2>My Certificates</h2>
-                <p>Certificates issued to you by the institution.</p>
-            </div>
-        </div>
-
-        <div class="empty-state">
-            <div class="empty-icon">
-                <Award size={30} />
-            </div>
-
-            <h3>No certificates available</h3>
-
-            <p>
-                Your certificates will appear here when they are issued
-                by the institution.
-            </p>
-        </div>
-    </section>
-
-    <!-- =========================
-         DOWNLOAD INFORMATION
-         ========================= -->
-
-    <section class="info-card">
-        <div class="info-icon">
-            <Download size={22} />
-        </div>
-
-        <div>
-            <h3>Certificate Downloads</h3>
-
-            <p>
-                Once certificates are available, you will be able to
-                view or download them from this section.
-            </p>
-        </div>
-    </section>
+	<section class="card">
+		<h2>My Requests</h2>
+		{#if isLoading}
+			<p class="empty">Loading...</p>
+		{:else if certificates.length === 0}
+			<p class="empty">No certificate requests yet.</p>
+		{:else}
+			<div class="cert-list">
+				{#each certificates as cert}
+					{@const Icon = statusIcon(cert.status)}
+					<div class="cert-item">
+						<div class="cert-icon"><Icon size={22} /></div>
+						<div class="cert-info">
+							<strong>{cert.certificate_name}</strong>
+							<span>{cert.purpose || 'No purpose specified'}</span>
+							{#if cert.rejection_reason}
+								<span class="reject-reason">Reason: {cert.rejection_reason}</span>
+							{/if}
+						</div>
+						<div class="cert-status">
+							<span class:approved={cert.status === 'approved' || cert.status === 'issued'} class:rejected={cert.status === 'rejected'} class="status-badge">
+								{(cert.status || 'pending').toUpperCase()}
+							</span>
+							<span class="cert-no">
+								{#if cert.certificate_number}
+									<ShieldCheck size={13} /> {cert.certificate_number}
+								{/if}
+							</span>
+						</div>
+						{#if cert.status === 'approved' || cert.status === 'issued'}
+							<button class="view-btn" type="button" onclick={() => printCertificate(cert)}>
+								<Download size={15} /> View
+							</button>
+						{/if}
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</section>
 </div>
 
 <style>
-    .certificates-page {
-        min-height: 100vh;
-        padding: 36px;
-        box-sizing: border-box;
-        background: #f8fafc;
-    }
+	.cert-page {
+		min-height: 100vh;
+		padding: 36px;
+		box-sizing: border-box;
+		background: #f8fafc;
+	}
 
-    /* =========================
-       PAGE HEADER
-       ========================= */
+	.page-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 20px;
+		margin-bottom: 24px;
+	}
 
-    .page-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 20px;
-        margin-bottom: 28px;
-    }
+	.title-section {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+	}
 
-    .page-header h1 {
-        margin: 0;
-        color: #0f172a;
-        font-size: 30px;
-        font-weight: 800;
-    }
+	.title-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 50px;
+		height: 50px;
+		color: #2563eb;
+		background: #eff6ff;
+		border-radius: 13px;
+	}
 
-    .page-header p {
-        margin: 7px 0 0;
-        color: #64748b;
-        font-size: 13px;
-    }
+	.page-header h1 {
+		margin: 0;
+		color: #0f172a;
+		font-size: 28px;
+		font-weight: 800;
+	}
 
-    .search-box {
-        display: flex;
-        align-items: center;
-        gap: 9px;
-        width: 250px;
-        padding: 10px 13px;
-        box-sizing: border-box;
-        color: #64748b;
-        background: white;
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
-    }
+	.page-header p {
+		margin: 5px 0 0;
+		color: #64748b;
+		font-size: 13px;
+	}
 
-    .search-box input {
-        width: 100%;
-        padding: 0;
-        color: #0f172a;
-        background: transparent;
-        border: none;
-        outline: none;
-        font-size: 12px;
-    }
+	.primary-btn {
+		padding: 11px 18px;
+		border: none;
+		border-radius: 10px;
+		background: #2563eb;
+		color: white;
+		font-size: 13px;
+		font-weight: 600;
+		cursor: pointer;
+	}
 
-    .search-box input::placeholder {
-        color: #94a3b8;
-    }
+	.primary-btn:hover:not(:disabled) {
+		background: #1d4ed8;
+	}
 
-    /* =========================
-       SUMMARY
-       ========================= */
+	.primary-btn:disabled {
+		opacity: 0.7;
+		cursor: not-allowed;
+	}
 
-    .summary-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 16px;
-        margin-bottom: 20px;
-    }
+	.card {
+		padding: 24px;
+		background: white;
+		border: 1px solid #e2e8f0;
+		border-radius: 16px;
+		margin-bottom: 20px;
+	}
 
-    .summary-card {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        padding: 20px;
-        background: white;
-        border: 1px solid #e2e8f0;
-        border-radius: 15px;
-        box-shadow: 0 5px 18px rgba(15, 23, 42, 0.04);
-    }
+	.card h2 {
+		margin: 0 0 18px;
+		color: #0f172a;
+		font-size: 17px;
+		font-weight: 700;
+	}
 
-    .summary-icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 44px;
-        height: 44px;
-        flex-shrink: 0;
-        color: #2563eb;
-        background: #eff6ff;
-        border-radius: 11px;
-    }
+	.error-box {
+		padding: 12px 16px;
+		margin-bottom: 16px;
+		background: #fef2f2;
+		border: 1px solid #fecaca;
+		border-radius: 10px;
+		color: #b91c1c;
+		font-size: 13px;
+	}
 
-    .issue-icon {
-        color: #d97706;
-        background: #fffbeb;
-    }
+	.success-box {
+		padding: 12px 16px;
+		margin-bottom: 16px;
+		background: #f0fdf4;
+		border: 1px solid #bbf7d0;
+		border-radius: 10px;
+		color: #15803d;
+		font-size: 13px;
+	}
 
-    .type-icon {
-        color: #7c3aed;
-        background: #f5f3ff;
-    }
+	.form-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 14px;
+		margin-bottom: 18px;
+	}
 
-    .summary-card span {
-        display: block;
-        margin-bottom: 5px;
-        color: #64748b;
-        font-size: 11px;
-    }
+	.form-group {
+		display: flex;
+		flex-direction: column;
+		gap: 7px;
+	}
 
-    .summary-card strong {
-        color: #0f172a;
-        font-size: 22px;
-        font-weight: 800;
-    }
+	.form-group label {
+		color: #0f172a;
+		font-size: 13px;
+		font-weight: 600;
+	}
 
-    /* =========================
-       CERTIFICATES CARD
-       ========================= */
+	.form-group select,
+	.form-group input {
+		height: 44px;
+		padding: 0 12px;
+		border: 1px solid #cbd5e1;
+		border-radius: 10px;
+		background: white;
+		color: #0f172a;
+		font-size: 13px;
+		outline: none;
+	}
 
-    .certificates-card {
-        min-height: 380px;
-        margin-bottom: 20px;
-        padding: 24px;
-        background: white;
-        border: 1px solid #e2e8f0;
-        border-radius: 16px;
-        box-shadow: 0 5px 18px rgba(15, 23, 42, 0.04);
-    }
+	.form-error {
+		color: #dc2626;
+		font-size: 13px;
+	}
 
-    .card-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 15px;
-        margin-bottom: 20px;
-    }
+	.cert-list {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
 
-    .card-header h2 {
-        margin: 0;
-        color: #0f172a;
-        font-size: 17px;
-        font-weight: 800;
-    }
+	.cert-item {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		padding: 14px;
+		border: 1px solid #e2e8f0;
+		border-radius: 12px;
+		background: #f8fafc;
+	}
 
-    .card-header p {
-        margin: 5px 0 0;
-        color: #64748b;
-        font-size: 11px;
-    }
+	.cert-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 42px;
+		height: 42px;
+		border-radius: 10px;
+		color: #2563eb;
+		background: #eff6ff;
+		flex-shrink: 0;
+	}
 
-    /* =========================
-       EMPTY STATE
-       ========================= */
+	.cert-info {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+	}
 
-    .empty-state {
-        display: flex;
-        align-items: center;
-        flex-direction: column;
-        justify-content: center;
-        min-height: 280px;
-        padding: 30px 20px;
-        text-align: center;
-    }
+	.cert-info strong {
+		color: #0f172a;
+		font-size: 14px;
+	}
 
-    .empty-icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 64px;
-        height: 64px;
-        color: #2563eb;
-        background: #eff6ff;
-        border-radius: 16px;
-    }
+	.cert-info span {
+		color: #64748b;
+		font-size: 12px;
+	}
 
-    .empty-state h3 {
-        margin: 16px 0 7px;
-        color: #334155;
-        font-size: 15px;
-        font-weight: 700;
-    }
+	.reject-reason {
+		color: #b91c1c !important;
+	}
 
-    .empty-state p {
-        max-width: 430px;
-        margin: 0;
-        color: #94a3b8;
-        font-size: 11px;
-        line-height: 1.6;
-    }
+	.cert-status {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 6px;
+	}
 
-    /* =========================
-       INFORMATION CARD
-       ========================= */
+	.status-badge {
+		padding: 5px 10px;
+		border-radius: 20px;
+		font-size: 11px;
+		font-weight: 700;
+		background: #fef3c7;
+		color: #b45309;
+	}
 
-    .info-card {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-        padding: 20px;
-        background: #eff6ff;
-        border: 1px solid #dbeafe;
-        border-radius: 14px;
-    }
+	.status-badge.approved {
+		background: #dcfce7;
+		color: #15803d;
+	}
 
-    .info-icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 44px;
-        height: 44px;
-        flex-shrink: 0;
-        color: #2563eb;
-        background: white;
-        border-radius: 11px;
-    }
+	.status-badge.rejected {
+		background: #fee2e2;
+		color: #b91c1c;
+	}
 
-    .info-card h3 {
-        margin: 0;
-        color: #1e3a8a;
-        font-size: 13px;
-        font-weight: 700;
-    }
+	.cert-no {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		color: #64748b;
+		font-size: 11px;
+	}
 
-    .info-card p {
-        margin: 5px 0 0;
-        color: #64748b;
-        font-size: 11px;
-        line-height: 1.5;
-    }
+	.view-btn {
+		display: flex;
+		align-items: center;
+		gap: 5px;
+		padding: 8px 12px;
+		border: 1px solid #2563eb;
+		border-radius: 9px;
+		background: white;
+		color: #2563eb;
+		font-size: 12px;
+		font-weight: 600;
+		cursor: pointer;
+		flex-shrink: 0;
+	}
 
-    /* =========================
-       RESPONSIVE
-       ========================= */
+	.empty {
+		color: #94a3b8;
+		font-size: 13px;
+		text-align: center;
+		padding: 20px 0;
+	}
 
-    @media (max-width: 1100px) {
-        .certificates-page {
-            padding: 24px;
-        }
+	@media (max-width: 700px) {
+		.cert-page {
+			padding: 18px;
+		}
 
-        .summary-grid {
-            grid-template-columns: 1fr;
-        }
-    }
+		.form-grid {
+			grid-template-columns: 1fr;
+		}
 
-    @media (max-width: 700px) {
-        .certificates-page {
-            padding: 18px;
-        }
-
-        .page-header {
-            align-items: flex-start;
-            flex-direction: column;
-        }
-
-        .search-box {
-            width: 100%;
-        }
-
-        .certificates-card {
-            padding: 18px;
-        }
-    }
+		.cert-item {
+			flex-wrap: wrap;
+		}
+	}
 </style>

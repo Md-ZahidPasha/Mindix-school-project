@@ -4,9 +4,39 @@
         CheckCircle2,
         XCircle,
         Clock3,
-        TrendingUp,
-        ChevronDown
+        TrendingUp
     } from '@lucide/svelte';
+    import { API } from '$lib/config/api';
+
+    let isLoading = $state(true);
+    let error = $state('');
+    let attendance = $state({ percentage: 0, present: 0, absent: 0, late: 0 });
+    let recentRecords = $state<{ date: string; status: string }[]>([]);
+
+    async function loadAttendance() {
+        isLoading = true;
+        error = '';
+        try {
+            const token = localStorage.getItem('access_token');
+            const response = await fetch(`${API.baseUrl}/api/students/dashboard`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.detail || 'Unable to load attendance.');
+            }
+            attendance = result.attendance || { percentage: 0, present: 0, absent: 0, late: 0 };
+            recentRecords = (result.recent_attendance || []).slice(0, 20);
+        } catch (err) {
+            error = err instanceof Error ? err.message : 'Unable to load attendance.';
+        } finally {
+            isLoading = false;
+        }
+    }
+
+    $effect(() => {
+        loadAttendance();
+    });
 </script>
 
 <svelte:head>
@@ -14,36 +44,25 @@
 </svelte:head>
 
 <div class="attendance-page">
-    <!-- =========================
-         PAGE HEADER
-         ========================= -->
-
     <div class="page-header">
         <div>
             <h1>Attendance</h1>
             <p>Track your attendance and attendance history.</p>
         </div>
-
-        <button class="month-button" type="button">
-            <CalendarCheck size={17} />
-            Select Month
-            <ChevronDown size={16} />
-        </button>
     </div>
 
-    <!-- =========================
-         SUMMARY CARDS
-         ========================= -->
+    {#if error}
+        <div class="error-box">{error}</div>
+    {/if}
 
     <div class="summary-grid">
         <div class="summary-card">
             <div class="summary-icon">
                 <TrendingUp size={21} />
             </div>
-
             <div>
                 <span>Overall Attendance</span>
-                <strong>—</strong>
+                <strong>{isLoading ? '…' : `${attendance.percentage}%`}</strong>
             </div>
         </div>
 
@@ -51,10 +70,9 @@
             <div class="summary-icon present-icon">
                 <CheckCircle2 size={21} />
             </div>
-
             <div>
                 <span>Present Days</span>
-                <strong>—</strong>
+                <strong>{isLoading ? '…' : attendance.present}</strong>
             </div>
         </div>
 
@@ -62,10 +80,9 @@
             <div class="summary-icon absent-icon">
                 <XCircle size={21} />
             </div>
-
             <div>
                 <span>Absent Days</span>
-                <strong>—</strong>
+                <strong>{isLoading ? '…' : attendance.absent}</strong>
             </div>
         </div>
 
@@ -73,17 +90,12 @@
             <div class="summary-icon late-icon">
                 <Clock3 size={21} />
             </div>
-
             <div>
                 <span>Late Days</span>
-                <strong>—</strong>
+                <strong>{isLoading ? '…' : attendance.late}</strong>
             </div>
         </div>
     </div>
-
-    <!-- =========================
-         ATTENDANCE OVERVIEW
-         ========================= -->
 
     <section class="attendance-card">
         <div class="card-header">
@@ -91,56 +103,29 @@
                 <h2>Attendance Overview</h2>
                 <p>Your current attendance performance</p>
             </div>
-
             <div class="percentage-badge">
-                —
+                {isLoading ? '…' : `${attendance.percentage}%`}
             </div>
         </div>
 
         <div class="progress-section">
             <div class="progress-label">
                 <span>Attendance Percentage</span>
-                <strong>—</strong>
+                <strong>{isLoading ? '…' : `${attendance.percentage}%`}</strong>
             </div>
-
             <div class="progress-bar">
-                <div class="progress-fill"></div>
+                <div class="progress-fill" style="width: {attendance.percentage}%;"></div>
             </div>
-
             <div class="attendance-note">
                 <CalendarCheck size={16} />
-                <span>Attendance information will appear here.</span>
+                <span>
+                    {attendance.percentage >= 75
+                        ? 'Attendance is healthy.'
+                        : 'Attendance is below 75%. Please attend classes regularly.'}
+                </span>
             </div>
         </div>
     </section>
-
-    <!-- =========================
-         SUBJECT-WISE ATTENDANCE
-         ========================= -->
-
-    <section class="attendance-card">
-        <div class="card-header">
-            <div>
-                <h2>Subject-wise Attendance</h2>
-                <p>Attendance percentage by subject</p>
-            </div>
-        </div>
-
-        <div class="empty-message">
-            <CalendarCheck size={24} />
-
-            <p>No attendance data available yet.</p>
-
-            <span>
-                Subject-wise attendance will appear when attendance records
-                are available.
-            </span>
-        </div>
-    </section>
-
-    <!-- =========================
-         ATTENDANCE HISTORY
-         ========================= -->
 
     <section class="attendance-card">
         <div class="card-header">
@@ -150,15 +135,36 @@
             </div>
         </div>
 
-        <div class="empty-message">
-            <CalendarCheck size={24} />
-
-            <p>No attendance records available yet.</p>
-
-            <span>
-                Your date-wise attendance history will appear here.
-            </span>
-        </div>
+        {#if isLoading}
+            <p class="empty-muted">Loading...</p>
+        {:else if recentRecords.length === 0}
+            <div class="empty-message">
+                <CalendarCheck size={24} />
+                <p>No attendance records available yet.</p>
+                <span>Your date-wise attendance history will appear here.</span>
+            </div>
+        {:else}
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {#each recentRecords as record}
+                        <tr>
+                            <td>{record.date}</td>
+                            <td>
+                                <span class="status-pill status-{record.status.toLowerCase()}">
+                                    {record.status.toUpperCase()}
+                                </span>
+                            </td>
+                        </tr>
+                    {/each}
+                </tbody>
+            </table>
+        {/if}
     </section>
 </div>
 
@@ -169,10 +175,6 @@
         background: #f8fafc;
         box-sizing: border-box;
     }
-
-    /* =========================
-       PAGE HEADER
-       ========================= */
 
     .page-header {
         display: flex;
@@ -195,27 +197,15 @@
         font-size: 13px;
     }
 
-    .month-button {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 10px 14px;
-        color: #334155;
-        background: white;
-        border: 1px solid #e2e8f0;
+    .error-box {
+        padding: 12px 16px;
+        margin-bottom: 16px;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
         border-radius: 10px;
-        font-size: 12px;
-        font-weight: 600;
-        cursor: pointer;
+        color: #b91c1c;
+        font-size: 13px;
     }
-
-    .month-button:hover {
-        background: #f8fafc;
-    }
-
-    /* =========================
-       SUMMARY CARDS
-       ========================= */
 
     .summary-grid {
         display: grid;
@@ -275,10 +265,6 @@
         font-weight: 800;
     }
 
-    /* =========================
-       ATTENDANCE CARDS
-       ========================= */
-
     .attendance-card {
         margin-bottom: 20px;
         padding: 24px;
@@ -319,10 +305,6 @@
         font-weight: 800;
     }
 
-    /* =========================
-       PROGRESS
-       ========================= */
-
     .progress-section {
         padding: 4px 0;
     }
@@ -354,6 +336,7 @@
         height: 100%;
         background: #2563eb;
         border-radius: 999px;
+        transition: width 0.5s ease;
     }
 
     .attendance-note {
@@ -365,9 +348,12 @@
         font-size: 11px;
     }
 
-    /* =========================
-       EMPTY STATE
-       ========================= */
+    .empty-muted {
+        color: #94a3b8;
+        font-size: 13px;
+        text-align: center;
+        padding: 20px 0;
+    }
 
     .empty-message {
         display: flex;
@@ -394,9 +380,52 @@
         line-height: 1.5;
     }
 
-    /* =========================
-       RESPONSIVE
-       ========================= */
+    .history-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+    }
+
+    .history-table th,
+    .history-table td {
+        padding: 11px 12px;
+        text-align: left;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .history-table th {
+        color: #64748b;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+    }
+
+    .history-table td {
+        color: #334155;
+    }
+
+    .status-pill {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .status-present {
+        background: #dcfce7;
+        color: #15803d;
+    }
+
+    .status-absent,
+    .status-leave {
+        background: #fee2e2;
+        color: #b91c1c;
+    }
+
+    .status-late {
+        background: #fef3c7;
+        color: #b45309;
+    }
 
     @media (max-width: 1100px) {
         .attendance-page {

@@ -1,28 +1,48 @@
 <script lang="ts">
 	import StudentProfile from '$lib/components/principal/StudentProfile.svelte';
+	import StudentIdCard from '$lib/components/principal/StudentIdCard.svelte';
+	import { scanLookup, type ScanLookupResult } from '$lib/services/attendance';
 
 	let studentId = $state('');
 	let error = $state('');
+	let loading = $state(false);
 	let showProfile = $state(false);
+	let result: ScanLookupResult | null = $state(null);
 
-	function searchStudent() {
+	async function searchStudent() {
 		error = '';
 		showProfile = false;
+		result = null;
 
-		if (!studentId.trim()) {
+		const id = studentId.trim();
+		if (!id) {
 			error = 'Student ID is required';
 			return;
 		}
 
-		showProfile = true;
+		const institutionId = localStorage.getItem('institution_id') || '';
+		if (!institutionId) {
+			error = 'Institution context is missing. Please log in again.';
+			return;
+		}
 
-		console.log('Searching student:', studentId);
+		loading = true;
+		try {
+			const data = await scanLookup(id, institutionId);
+			result = data;
+			showProfile = true;
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Student not found.';
+		} finally {
+			loading = false;
+		}
 	}
 
 	function clearSearch() {
 		studentId = '';
 		error = '';
 		showProfile = false;
+		result = null;
 	}
 </script>
 
@@ -56,6 +76,9 @@
 					oninput={() => {
 						error = '';
 					}}
+					onkeydown={(e) => {
+						if (e.key === 'Enter') searchStudent();
+					}}
 				/>
 
 				{#if error}
@@ -63,12 +86,19 @@
 				{/if}
 			</div>
 
-			<button type="button" onclick={searchStudent}>
-				Search
+			<button type="button" onclick={searchStudent} disabled={loading}>
+				{loading ? 'Searching…' : 'Search'}
 			</button>
 		</div>
 	</div>
-    {#if showProfile}
+	{#if showProfile && result}
+		<StudentIdCard
+			code={result.code}
+			name={result.full_name}
+			rollNumber={result.roll_number}
+			className={result.class_name}
+			section={result.section}
+		/>
 	<StudentProfile />
 
 	<button
@@ -195,6 +225,11 @@
 
 	button:hover {
 		background: #1d4ed8;
+	}
+
+	button:disabled {
+		background: #94a3b8;
+		cursor: not-allowed;
 	}
 
 	.error-message {

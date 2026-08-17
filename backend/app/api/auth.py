@@ -10,12 +10,15 @@ from app.schemas.auth import (
     StudentLoginResponse,
     ParentLoginRequest,
     ParentLoginResponse,
+    StaffLoginRequest,
+    StaffLoginResponse,
 )
 
 from app.services.auth_service import (
     login_institution,
     login_student,
     login_parent,
+    login_staff,
 )
 
 
@@ -95,6 +98,31 @@ def parent_login(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid parent ID or password.",
+        )
+
+    return result
+
+
+# ==========================================
+# Staff / Employee Login
+# ==========================================
+@router.post(
+    "/staff-login",
+    response_model=StaffLoginResponse,
+)
+def staff_login(
+    login_data: StaffLoginRequest,
+    db: Session = Depends(get_db),
+):
+    result = login_staff(
+        db,
+        login_data,
+    )
+
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid institution name, email or password.",
         )
 
     return result

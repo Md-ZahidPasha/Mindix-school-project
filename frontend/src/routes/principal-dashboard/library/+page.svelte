@@ -1,1010 +1,619 @@
 <script lang="ts">
-    import PrincipalSidebar from '$lib/components/principal/PrincipalSidebar.svelte';
-    type BookStatus = 'available' | 'unavailable';
+	import {
+		Library as LibraryIcon,
+		BookOpen,
+		Plus,
+		Search,
+		RefreshCw,
+		AlertCircle,
+		Trash2
+	} from '@lucide/svelte';
+	import {
+		getBooks,
+		createBook,
+		deleteBook,
+		getBorrowed,
+		getOverdueBooks,
+		getLibraryStats,
+		type Book,
+		type Transaction,
+		type LibraryStats
+	} from '$lib/services/library';
 
-    type Book = {
-        id: string;
-        name: string;
-        author: string;
-        category: string;
-        status: BookStatus;
-        availableDate: string;
-    };
+	let books = $state<Book[]>([]);
+	let borrowed = $state<Transaction[]>([]);
+	let overdue = $state<Transaction[]>([]);
+	let stats = $state<LibraryStats | null>(null);
+	let searchQuery = $state('');
+	let isLoading = $state(true);
+	let error = $state('');
+	let success = $state('');
 
-    type BookRecord = {
-        id: number;
-        bookName: string;
-        issueDate: string;
-        returnDate: string;
-        status: 'Borrowed' | 'Returned';
-    };
+	let showAddForm = $state(false);
+	let newTitle = $state('');
+	let newAuthor = $state('');
+	let newIsbn = $state('');
+	let newCopies = $state(1);
 
-    let searchBook = $state('');
+	async function loadAll() {
+		isLoading = true;
+		error = '';
+		try {
+			const [booksResult, borrowedResult, overdueResult, statsResult] = await Promise.all([
+				getBooks(),
+				getBorrowed(),
+				getOverdueBooks(),
+				getLibraryStats()
+			]);
+			books = booksResult;
+			borrowed = borrowedResult;
+			overdue = overdueResult;
+			stats = statsResult;
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Unable to load library data.';
+		} finally {
+			isLoading = false;
+		}
+	}
 
-    let searchedBook = $state<Book | null>(null);
+	async function addBook() {
+		if (!newTitle.trim()) {
+			error = 'Book title is required.';
+			return;
+		}
+		error = '';
+		success = '';
+		try {
+			await createBook({
+				title: newTitle.trim(),
+				author: newAuthor.trim() || undefined,
+				isbn: newIsbn.trim() || undefined,
+				total_copies: newCopies
+			});
+			success = 'Book added to the library.';
+			showAddForm = false;
+			newTitle = '';
+			newAuthor = '';
+			newIsbn = '';
+			newCopies = 1;
+			await loadAll();
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Unable to add book.';
+		}
+	}
 
-    let searchMessage = $state('');
+	async function removeBook(id: string) {
+		error = '';
+		success = '';
+		try {
+			await deleteBook(id);
+			success = 'Book removed from the library.';
+			await loadAll();
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Unable to remove book.';
+		}
+	}
 
-    let requestMessage = $state('');
+	const filteredBooks = $derived(
+		searchQuery
+			? books.filter((b) =>
+					`${b.title} ${b.author} ${b.isbn || ''}`.toLowerCase().includes(searchQuery.toLowerCase())
+				)
+			: books
+	);
 
-    const books: Book[] = [
-        {
-            id: 'BK001',
-            name: 'The Great Gatsby',
-            author: 'F. Scott Fitzgerald',
-            category: 'Literature',
-            status: 'available',
-            availableDate: 'Available Now'
-        },
-        {
-            id: 'BK002',
-            name: 'Introduction to Biology',
-            author: 'Campbell',
-            category: 'Biology',
-            status: 'available',
-            availableDate: 'Available Now'
-        },
-        {
-            id: 'BK003',
-            name: 'Advanced Mathematics',
-            author: 'R. D. Sharma',
-            category: 'Mathematics',
-            status: 'unavailable',
-            availableDate: '25 Aug 2026'
-        },
-        {
-            id: 'BK004',
-            name: 'English Grammar',
-            author: 'Wren & Martin',
-            category: 'English',
-            status: 'available',
-            availableDate: 'Available Now'
-        },
-        {
-            id: 'BK005',
-            name: 'Computer Fundamentals',
-            author: 'P. K. Sinha',
-            category: 'Computer Science',
-            status: 'unavailable',
-            availableDate: '29 Aug 2026'
-        }
-    ];
+	function fmtDate(value: string | null | undefined): string {
+		if (!value) return '—';
+		const d = new Date(value);
+		if (isNaN(d.getTime())) return value;
+		return d.toLocaleDateString();
+	}
 
-    let bookRecords = $state<BookRecord[]>([
-        {
-            id: 1,
-            bookName: 'School Management Handbook',
-            issueDate: '02 Aug 2026',
-            returnDate: '09 Aug 2026',
-            status: 'Returned'
-        },
-        {
-            id: 2,
-            bookName: 'Educational Leadership',
-            issueDate: '28 Jul 2026',
-            returnDate: '28 Aug 2026',
-            status: 'Borrowed'
-        },
-        {
-            id: 3,
-            bookName: 'The Great Gatsby',
-            issueDate: '15 Jul 2026',
-            returnDate: '22 Jul 2026',
-            status: 'Returned'
-        }
-    ]);
-
-    function searchForBook() {
-        requestMessage = '';
-
-        const query = searchBook.trim().toLowerCase();
-
-        if (!query) {
-            searchedBook = null;
-            searchMessage = 'Please enter a book name.';
-            return;
-        }
-
-        const result = books.find((book) =>
-            book.name.toLowerCase().includes(query)
-        );
-
-        if (result) {
-            searchedBook = result;
-            searchMessage = '';
-        } else {
-            searchedBook = null;
-            searchMessage = 'No book found with this name.';
-        }
-    }
-
-    function requestBook() {
-        if (!searchedBook) return;
-
-        if (searchedBook.status === 'available') {
-            requestMessage =
-                'Book request submitted successfully. Waiting for library approval.';
-        } else {
-            requestMessage =
-                `This book is currently unavailable. Expected availability: ${searchedBook.availableDate}.`;
-        }
-    }
-
-    function clearSearch() {
-        searchBook = '';
-        searchedBook = null;
-        searchMessage = '';
-        requestMessage = '';
-    }
+	$effect(() => {
+		loadAll();
+	});
 </script>
 
-<div class="principal-layout">
-
-    <PrincipalSidebar />
-
-    <main class="main-content">
-
 <div class="library-page">
-
-    <!-- PAGE HEADER -->
-
-    <header class="page-header">
-        <div>
-            <h1>Library</h1>
-
-            <p>
-                Search books, check availability and view your library records.
-            </p>
-        </div>
-    </header>
-
-
-    <!-- SEARCH BOOK -->
-
-    <section class="search-card">
-
-        <div class="section-heading">
-            <div class="heading-icon">
-                ▥
-            </div>
-
-            <div>
-                <h2>Find a Book</h2>
-
-                <p>
-                    Enter the name of the book you want to find in the library.
-                </p>
-            </div>
-        </div>
-
-
-        <div class="search-row">
-
-            <div class="search-input-wrapper">
-
-                <label for="book-search">
-                    Book Name
-                </label>
-
-                <input
-                    id="book-search"
-                    type="text"
-                    bind:value={searchBook}
-                    placeholder="Enter book name..."
-                    onkeydown={(event) => {
-                        if (event.key === 'Enter') {
-                            searchForBook();
-                        }
-                    }}
-                />
-
-            </div>
-
-
-            <button
-                type="button"
-                class="search-button"
-                onclick={searchForBook}
-            >
-                Search
-            </button>
-
-        </div>
-
-
-        {#if searchMessage}
-
-            <div class="message error-message">
-                {searchMessage}
-            </div>
-
-        {/if}
-
-    </section>
-
-
-    <!-- SEARCH RESULT -->
-
-    {#if searchedBook}
-
-        <section class="book-result-card">
-
-            <div class="result-header">
-
-                <div>
-                    <span class="result-label">
-                        BOOK DETAILS
-                    </span>
-
-                    <h2>
-                        {searchedBook.name}
-                    </h2>
-
-                    <p>
-                        {searchedBook.author}
-                    </p>
-                </div>
-
-
-                <button
-                    type="button"
-                    class="close-button"
-                    onclick={clearSearch}
-                    aria-label="Clear search"
-                >
-                    ×
-                </button>
-
-            </div>
-
-
-            <div class="book-details">
-
-                <div class="book-detail">
-                    <span>Book ID</span>
-                    <strong>{searchedBook.id}</strong>
-                </div>
-
-
-                <div class="book-detail">
-                    <span>Category</span>
-                    <strong>{searchedBook.category}</strong>
-                </div>
-
-
-                <div class="book-detail">
-                    <span>Author</span>
-                    <strong>{searchedBook.author}</strong>
-                </div>
-
-
-                <div class="book-detail">
-                    <span>Availability</span>
-
-                    {#if searchedBook.status === 'available'}
-
-                        <strong class="available">
-                            Available
-                        </strong>
-
-                    {:else}
-
-                        <strong class="unavailable">
-                            Not Available
-                        </strong>
-
-                    {/if}
-                </div>
-
-            </div>
-
-
-            <!-- AVAILABILITY -->
-
-            {#if searchedBook.status === 'available'}
-
-                <div class="availability-box available-box">
-
-                    <div class="availability-icon">
-                        ✓
-                    </div>
-
-                    <div>
-                        <strong>
-                            Book is available
-                        </strong>
-
-                        <p>
-                            You can request this book from the library.
-                        </p>
-                    </div>
-
-                </div>
-
-
-                <button
-                    type="button"
-                    class="request-button"
-                    onclick={requestBook}
-                >
-                    Request / Book This Book
-                </button>
-
-            {:else}
-
-                <div class="availability-box unavailable-box">
-
-                    <div class="availability-icon">
-                        !
-                    </div>
-
-                    <div>
-                        <strong>
-                            Book is currently unavailable
-                        </strong>
-
-                        <p>
-                            Expected availability:
-                            <b>{searchedBook.availableDate}</b>
-                        </p>
-                    </div>
-
-                </div>
-
-            {/if}
-
-
-            {#if requestMessage}
-
-                <div class="message success-message">
-                    {requestMessage}
-                </div>
-
-            {/if}
-
-        </section>
-
-    {/if}
-
-
-    <!-- MY LIBRARY RECORDS -->
-
-    <section class="records-section">
-
-        <div class="section-title">
-
-            <div>
-                <h2>My Library Records</h2>
-
-                <p>
-                    View books borrowed and returned by you.
-                </p>
-            </div>
-
-            <span class="record-count">
-                {bookRecords.length} Records
-            </span>
-
-        </div>
-
-
-        <div class="records-card">
-
-            <div class="table-wrapper">
-
-                <table>
-
-                    <thead>
-
-                        <tr>
-                            <th>Book Name</th>
-                            <th>Issue Date</th>
-                            <th>Return Date</th>
-                            <th>Status</th>
-                        </tr>
-
-                    </thead>
-
-
-                    <tbody>
-
-                        {#each bookRecords as record}
-
-                            <tr>
-
-                                <td>
-                                    <div class="book-name">
-                                        <div class="small-book-icon">
-                                            ▥
-                                        </div>
-
-                                        <strong>
-                                            {record.bookName}
-                                        </strong>
-                                    </div>
-                                </td>
-
-
-                                <td>
-                                    {record.issueDate}
-                                </td>
-
-
-                                <td>
-                                    {record.returnDate}
-                                </td>
-
-
-                                <td>
-
-                                    {#if record.status === 'Borrowed'}
-
-                                        <span class="status borrowed">
-                                            Borrowed
-                                        </span>
-
-                                    {:else}
-
-                                        <span class="status returned">
-                                            Returned
-                                        </span>
-
-                                    {/if}
-
-                                </td>
-
-                            </tr>
-
-                        {/each}
-
-                    </tbody>
-
-                </table>
-
-            </div>
-
-        </div>
-
-    </section>
+	<div class="page-header">
+		<div class="title-section">
+			<div class="title-icon">
+				<LibraryIcon size={26} />
+			</div>
+			<div>
+				<h1>Library Management</h1>
+				<p>Manage books, borrowed items and overdue returns</p>
+			</div>
+		</div>
+		<div class="header-actions">
+			<div class="search-box">
+				<Search size={17} />
+				<input type="text" placeholder="Search books..." bind:value={searchQuery} />
+			</div>
+			<button class="refresh-btn" type="button" onclick={loadAll}><RefreshCw size={15} /> Refresh</button>
+			<button class="add-btn" type="button" onclick={() => (showAddForm = !showAddForm)}>
+				<Plus size={16} /> Add Book
+			</button>
+		</div>
+	</div>
+
+	{#if error}
+		<div class="error-box">{error}</div>
+	{/if}
+	{#if success}
+		<div class="success-box">{success}</div>
+	{/if}
+
+	{#if showAddForm}
+		<section class="card add-card">
+			<h2>Add a New Book</h2>
+			<div class="form-grid">
+				<div class="form-group">
+					<label>Title</label>
+					<input type="text" bind:value={newTitle} placeholder="Book title" />
+				</div>
+				<div class="form-group">
+					<label>Author</label>
+					<input type="text" bind:value={newAuthor} placeholder="Author name" />
+				</div>
+				<div class="form-group">
+					<label>ISBN</label>
+					<input type="text" bind:value={newIsbn} placeholder="ISBN (optional)" />
+				</div>
+				<div class="form-group">
+					<label>Copies</label>
+					<input type="number" bind:value={newCopies} min={1} />
+				</div>
+			</div>
+			<button class="primary-btn" type="button" onclick={addBook}>Add Book</button>
+		</section>
+	{/if}
+
+	<div class="summary-grid">
+		<div class="summary-card">
+			<div class="summary-icon"><BookOpen size={20} /></div>
+			<div><span>Total Titles</span><strong>{stats?.total_books ?? '—'}</strong></div>
+		</div>
+		<div class="summary-card">
+			<div class="summary-icon available-icon"><BookOpen size={20} /></div>
+			<div><span>Available Copies</span><strong>{stats?.available_copies ?? '—'}</strong></div>
+		</div>
+		<div class="summary-card">
+			<div class="summary-icon issued-icon"><BookOpen size={20} /></div>
+			<div><span>Issued Books</span><strong>{stats?.issued_books ?? '—'}</strong></div>
+		</div>
+		<div class="summary-card">
+			<div class="summary-icon overdue-icon"><AlertCircle size={20} /></div>
+			<div><span>Overdue</span><strong>{stats?.overdue_books ?? '—'}</strong></div>
+		</div>
+	</div>
+
+	<section class="card">
+		<h2>Catalog ({filteredBooks.length})</h2>
+		{#if isLoading}
+			<p class="empty">Loading...</p>
+		{:else if filteredBooks.length === 0}
+			<p class="empty">No books in the library catalog.</p>
+		{:else}
+			<table class="data-table">
+				<thead>
+					<tr>
+						<th>Title</th>
+						<th>Author</th>
+						<th>ISBN</th>
+						<th>Copies</th>
+						<th>Available</th>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each filteredBooks as book}
+						<tr>
+							<td><strong>{book.title}</strong></td>
+							<td>{book.author || '—'}</td>
+							<td>{book.isbn || '—'}</td>
+							<td>{book.total_copies ?? 0}</td>
+							<td>
+								<span class="availability {(book.available_copies ?? 0) > 0 ? 'in' : 'out'}">
+									{(book.available_copies ?? 0) > 0 ? 'In stock' : 'Out of stock'}
+								</span>
+							</td>
+							<td>
+								<button class="delete-btn" type="button" onclick={() => removeBook(book.id)}>
+									<Trash2 size={14} />
+								</button>
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		{/if}
+	</section>
+
+	<section class="card">
+		<h2>Currently Issued</h2>
+		{#if isLoading}
+			<p class="empty">Loading...</p>
+		{:else if borrowed.length === 0}
+			<p class="empty">No books are currently issued.</p>
+		{:else}
+			<table class="data-table">
+				<thead>
+					<tr>
+						<th>Book</th>
+						<th>Student</th>
+						<th>Issued</th>
+						<th>Due</th>
+						<th>Status</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each borrowed as tx}
+						<tr>
+							<td>{tx.book_title || '—'}</td>
+							<td>{tx.student_name || tx.student_roll || '—'}</td>
+							<td>{fmtDate(tx.issue_date)}</td>
+							<td>{fmtDate(tx.due_date)}</td>
+							<td>
+								<span class="availability {(tx.days_overdue ?? 0) > 0 ? 'out' : 'in'}">
+									{(tx.days_overdue ?? 0) > 0 ? `${tx.days_overdue}d overdue` : 'Issued'}
+								</span>
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		{/if}
+	</section>
+
+	<section class="card">
+		<h2>Overdue Books ({overdue.length})</h2>
+		{#if isLoading}
+			<p class="empty">Loading...</p>
+		{:else if overdue.length === 0}
+			<p class="empty">No overdue books. Great job!</p>
+		{:else}
+			<table class="data-table">
+				<thead>
+					<tr>
+						<th>Book</th>
+						<th>Student</th>
+						<th>Due</th>
+						<th>Days Overdue</th>
+						<th>Fine</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each overdue as tx}
+						<tr>
+							<td>{tx.book_title || '—'}</td>
+							<td>{tx.student_name || tx.student_roll || '—'}</td>
+							<td>{fmtDate(tx.due_date)}</td>
+							<td>{tx.days_overdue ?? 0}</td>
+							<td>₹{tx.fine ?? 0}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		{/if}
+	</section>
 </div>
-    </main>
-</div>
-
 
 <style>
-    .principal-layout {
-        display: flex;
-        min-height: 100vh;
-        background: #f7f9fc;
-    }
-
-    .main-content {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .library-page {
-        min-height: 100vh;
-        padding: 28px 32px;
-        box-sizing: border-box;
-        background: #f7f9fc;
-    }
-
-
-    /* HEADER */
-
-    .page-header {
-        margin-bottom: 24px;
-    }
-
-    .page-header h1 {
-        margin: 0;
-        color: #14213d;
-        font-size: 30px;
-    }
-
-    .page-header p {
-        margin: 7px 0 0;
-        color: #64748b;
-        font-size: 15px;
-    }
-
-
-    /* SEARCH CARD */
-
-    .search-card {
-        padding: 24px;
-        background: white;
-        border: 1px solid #e5eaf2;
-        border-radius: 16px;
-        box-shadow:
-            0 4px 14px
-            rgba(15, 23, 42, 0.03);
-    }
-
-
-    .section-heading {
-        display: flex;
-        align-items: center;
-        gap: 13px;
-        margin-bottom: 20px;
-    }
-
-
-    .heading-icon {
-        width: 44px;
-        height: 44px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 12px;
-        background: #eef4ff;
-        color: #2563eb;
-        font-size: 20px;
-    }
-
-
-    .section-heading h2 {
-        margin: 0;
-        color: #14213d;
-        font-size: 19px;
-    }
-
-
-    .section-heading p {
-        margin: 4px 0 0;
-        color: #64748b;
-        font-size: 12px;
-    }
-
-
-    .search-row {
-        display: flex;
-        align-items: flex-end;
-        gap: 12px;
-    }
-
-
-    .search-input-wrapper {
-        flex: 1;
-    }
-
-
-    .search-input-wrapper label {
-        display: block;
-        margin-bottom: 7px;
-        color: #334155;
-        font-size: 12px;
-        font-weight: 600;
-    }
-
-
-    .search-input-wrapper input {
-        width: 100%;
-        height: 44px;
-        padding: 0 13px;
-        box-sizing: border-box;
-        border: 1px solid #dbe3ef;
-        border-radius: 9px;
-        background: white;
-        color: #1e293b;
-        font-size: 13px;
-        outline: none;
-    }
-
-
-    .search-input-wrapper input:focus {
-        border-color: #2563eb;
-        box-shadow:
-            0 0 0 3px
-            rgba(37, 99, 235, 0.1);
-    }
-
-
-    .search-button {
-        height: 44px;
-        padding: 0 25px;
-        border: none;
-        border-radius: 9px;
-        background: #2563eb;
-        color: white;
-        font-size: 13px;
-        font-weight: 600;
-        cursor: pointer;
-    }
-
-
-    .search-button:hover {
-        background: #1d4ed8;
-    }
-
-
-    /* BOOK RESULT */
-
-    .book-result-card {
-        margin-top: 20px;
-        padding: 24px;
-        background: white;
-        border: 1px solid #e5eaf2;
-        border-radius: 16px;
-        box-shadow:
-            0 4px 14px
-            rgba(15, 23, 42, 0.03);
-    }
-
-
-    .result-header {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        padding-bottom: 18px;
-        border-bottom: 1px solid #edf1f6;
-    }
-
-
-    .result-label {
-        display: block;
-        margin-bottom: 6px;
-        color: #2563eb;
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.7px;
-    }
-
-
-    .result-header h2 {
-        margin: 0;
-        color: #14213d;
-        font-size: 21px;
-    }
-
-
-    .result-header p {
-        margin: 5px 0 0;
-        color: #64748b;
-        font-size: 12px;
-    }
-
-
-    .close-button {
-        width: 32px;
-        height: 32px;
-        border: none;
-        border-radius: 8px;
-        background: #f1f5f9;
-        color: #64748b;
-        font-size: 21px;
-        cursor: pointer;
-    }
-
-
-    .close-button:hover {
-        background: #e2e8f0;
-    }
-
-
-    .book-details {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 14px;
-        padding: 20px 0;
-    }
-
-
-    .book-detail {
-        padding: 13px;
-        border: 1px solid #e5eaf2;
-        border-radius: 10px;
-        background: #f8fafc;
-    }
-
-
-    .book-detail span {
-        display: block;
-        margin-bottom: 6px;
-        color: #94a3b8;
-        font-size: 10px;
-        font-weight: 600;
-    }
-
-
-    .book-detail strong {
-        color: #334155;
-        font-size: 12px;
-    }
-
-
-    .available {
-        color: #16a34a !important;
-    }
-
-
-    .unavailable {
-        color: #dc2626 !important;
-    }
-
-
-    /* AVAILABILITY */
-
-    .availability-box {
-        display: flex;
-        align-items: center;
-        gap: 13px;
-        padding: 14px;
-        border-radius: 10px;
-    }
-
-
-    .available-box {
-        background: #f0fdf4;
-        border: 1px solid #bbf7d0;
-    }
-
-
-    .unavailable-box {
-        background: #fff7ed;
-        border: 1px solid #fed7aa;
-    }
-
-
-    .availability-icon {
-        width: 36px;
-        height: 36px;
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        font-weight: 800;
-    }
-
-
-    .available-box .availability-icon {
-        background: #dcfce7;
-        color: #16a34a;
-    }
-
-
-    .unavailable-box .availability-icon {
-        background: #ffedd5;
-        color: #ea580c;
-    }
-
-
-    .availability-box strong {
-        display: block;
-        color: #334155;
-        font-size: 12px;
-    }
-
-
-    .availability-box p {
-        margin: 4px 0 0;
-        color: #64748b;
-        font-size: 11px;
-    }
-
-
-    .request-button {
-        width: 100%;
-        height: 42px;
-        margin-top: 12px;
-        border: none;
-        border-radius: 9px;
-        background: #2563eb;
-        color: white;
-        font-size: 13px;
-        font-weight: 600;
-        cursor: pointer;
-    }
-
-
-    .request-button:hover {
-        background: #1d4ed8;
-    }
-
-
-    /* RECORDS */
-
-    .records-section {
-        margin-top: 28px;
-    }
-
-
-    .section-title {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 15px;
-        margin-bottom: 14px;
-    }
-
-
-    .section-title h2 {
-        margin: 0;
-        color: #14213d;
-        font-size: 20px;
-    }
-
-
-    .section-title p {
-        margin: 5px 0 0;
-        color: #64748b;
-        font-size: 13px;
-    }
-
-
-    .record-count {
-        padding: 7px 11px;
-        border-radius: 8px;
-        background: #eef4ff;
-        color: #2563eb;
-        font-size: 11px;
-        font-weight: 700;
-    }
-
-
-    .records-card {
-        overflow: hidden;
-        background: white;
-        border: 1px solid #e5eaf2;
-        border-radius: 16px;
-        box-shadow:
-            0 4px 14px
-            rgba(15, 23, 42, 0.03);
-    }
-
-
-    .table-wrapper {
-        overflow-x: auto;
-    }
-
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        min-width: 650px;
-    }
-
-
-    th {
-        padding: 15px 20px;
-        background: #f8fafc;
-        color: #64748b;
-        font-size: 11px;
-        font-weight: 700;
-        text-align: left;
-        border-bottom: 1px solid #e5eaf2;
-    }
-
-
-    td {
-        padding: 16px 20px;
-        color: #64748b;
-        font-size: 12px;
-        border-bottom: 1px solid #edf1f6;
-    }
-
-
-    tr:last-child td {
-        border-bottom: none;
-    }
-
-
-    .book-name {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-
-    .small-book-icon {
-        width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 8px;
-        background: #eef4ff;
-        color: #2563eb;
-    }
-
-
-    .book-name strong {
-        color: #14213d;
-        font-size: 12px;
-    }
-
-
-    .status {
-        display: inline-block;
-        padding: 6px 9px;
-        border-radius: 7px;
-        font-size: 10px;
-        font-weight: 700;
-    }
-
-
-    .borrowed {
-        background: #fff7ed;
-        color: #ea580c;
-    }
-
-
-    .returned {
-        background: #f0fdf4;
-        color: #16a34a;
-    }
-
-
-    /* MESSAGES */
-
-    .message {
-        margin-top: 14px;
-        padding: 11px 13px;
-        border-radius: 9px;
-        font-size: 11px;
-    }
-
-
-    .error-message {
-        background: #fef2f2;
-        border: 1px solid #fecaca;
-        color: #dc2626;
-    }
-
-
-    .success-message {
-        background: #f0fdf4;
-        border: 1px solid #bbf7d0;
-        color: #15803d;
-    }
-
-
-    /* RESPONSIVE */
-
-    @media (max-width: 900px) {
-
-        .library-page {
-            padding: 22px;
-        }
-
-
-        .book-details {
-            grid-template-columns: repeat(2, 1fr);
-        }
-
-    }
-
-
-    @media (max-width: 600px) {
-
-        .library-page {
-            padding: 18px;
-        }
-
-
-        .search-row {
-            flex-direction: column;
-            align-items: stretch;
-        }
-
-
-        .search-button {
-            width: 100%;
-        }
-
-
-        .book-details {
-            grid-template-columns: 1fr;
-        }
-
-
-        .section-title {
-            align-items: flex-start;
-            flex-direction: column;
-        }
-
-    }
-
+	.library-page {
+		min-height: 100vh;
+		padding: 36px;
+		box-sizing: border-box;
+		background: #f8fafc;
+	}
+
+	.page-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 20px;
+		margin-bottom: 24px;
+		flex-wrap: wrap;
+	}
+
+	.title-section {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+	}
+
+	.title-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 50px;
+		height: 50px;
+		color: #2563eb;
+		background: #eff6ff;
+		border-radius: 13px;
+	}
+
+	.page-header h1 {
+		margin: 0;
+		color: #0f172a;
+		font-size: 28px;
+		font-weight: 800;
+	}
+
+	.page-header p {
+		margin: 5px 0 0;
+		color: #64748b;
+		font-size: 13px;
+	}
+
+	.header-actions {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		flex-wrap: wrap;
+	}
+
+	.search-box {
+		display: flex;
+		align-items: center;
+		gap: 9px;
+		width: 240px;
+		padding: 10px 13px;
+		box-sizing: border-box;
+		color: #64748b;
+		background: white;
+		border: 1px solid #e2e8f0;
+		border-radius: 10px;
+	}
+
+	.search-box input {
+		width: 100%;
+		padding: 0;
+		color: #0f172a;
+		background: transparent;
+		border: none;
+		outline: none;
+		font-size: 12px;
+	}
+
+	.refresh-btn,
+	.add-btn {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 10px 14px;
+		border-radius: 10px;
+		font-size: 13px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.refresh-btn {
+		border: 1px solid #e2e8f0;
+		background: white;
+		color: #334155;
+	}
+
+	.add-btn {
+		border: none;
+		background: #2563eb;
+		color: white;
+	}
+
+	.primary-btn {
+		padding: 10px 18px;
+		border: none;
+		border-radius: 10px;
+		background: #2563eb;
+		color: white;
+		font-size: 13px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.error-box {
+		padding: 12px 16px;
+		margin-bottom: 16px;
+		background: #fef2f2;
+		border: 1px solid #fecaca;
+		border-radius: 10px;
+		color: #b91c1c;
+		font-size: 13px;
+	}
+
+	.success-box {
+		padding: 12px 16px;
+		margin-bottom: 16px;
+		background: #f0fdf4;
+		border: 1px solid #bbf7d0;
+		border-radius: 10px;
+		color: #15803d;
+		font-size: 13px;
+	}
+
+	.card {
+		padding: 24px;
+		background: white;
+		border: 1px solid #e2e8f0;
+		border-radius: 16px;
+		margin-bottom: 20px;
+	}
+
+	.card h2 {
+		margin: 0 0 16px;
+		color: #0f172a;
+		font-size: 17px;
+		font-weight: 700;
+	}
+
+	.add-card {
+		border-color: #bfdbfe;
+		background: #f8faff;
+	}
+
+	.form-grid {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 14px;
+		margin-bottom: 16px;
+	}
+
+	.form-group {
+		display: flex;
+		flex-direction: column;
+		gap: 7px;
+	}
+
+	.form-group label {
+		color: #0f172a;
+		font-size: 13px;
+		font-weight: 600;
+	}
+
+	.form-group input {
+		height: 44px;
+		padding: 0 12px;
+		border: 1px solid #cbd5e1;
+		border-radius: 10px;
+		background: white;
+		color: #0f172a;
+		font-size: 13px;
+		outline: none;
+	}
+
+	.summary-grid {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 16px;
+		margin-bottom: 20px;
+	}
+
+	.summary-card {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		padding: 20px;
+		background: white;
+		border: 1px solid #e2e8f0;
+		border-radius: 15px;
+	}
+
+	.summary-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 44px;
+		height: 44px;
+		border-radius: 11px;
+		flex-shrink: 0;
+		color: #2563eb;
+		background: #eff6ff;
+	}
+
+	.available-icon {
+		color: #16a34a;
+		background: #f0fdf4;
+	}
+
+	.issued-icon {
+		color: #d97706;
+		background: #fffbeb;
+	}
+
+	.overdue-icon {
+		color: #dc2626;
+		background: #fef2f2;
+	}
+
+	.summary-card span {
+		display: block;
+		margin-bottom: 5px;
+		color: #64748b;
+		font-size: 11px;
+	}
+
+	.summary-card strong {
+		color: #0f172a;
+		font-size: 22px;
+		font-weight: 800;
+	}
+
+	.data-table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 12px;
+	}
+
+	.data-table th,
+	.data-table td {
+		padding: 11px 12px;
+		text-align: left;
+		border-bottom: 1px solid #e2e8f0;
+	}
+
+	.data-table th {
+		color: #64748b;
+		font-size: 11px;
+		text-transform: uppercase;
+		letter-spacing: 0.4px;
+	}
+
+	.data-table td {
+		color: #334155;
+	}
+
+	.data-table td strong {
+		color: #0f172a;
+	}
+
+	.availability {
+		padding: 4px 10px;
+		border-radius: 20px;
+		font-size: 11px;
+		font-weight: 700;
+	}
+
+	.availability.in {
+		background: #dcfce7;
+		color: #15803d;
+	}
+
+	.availability.out {
+		background: #fee2e2;
+		color: #b91c1c;
+	}
+
+	.delete-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 6px;
+		border: 1px solid #fecaca;
+		border-radius: 7px;
+		background: white;
+		color: #dc2626;
+		cursor: pointer;
+	}
+
+	.empty {
+		color: #94a3b8;
+		font-size: 13px;
+		text-align: center;
+		padding: 24px 0;
+	}
+
+	@media (max-width: 900px) {
+		.library-page {
+			padding: 18px;
+		}
+
+		.summary-grid,
+		.form-grid {
+			grid-template-columns: repeat(2, 1fr);
+		}
+
+		.search-box {
+			width: 100%;
+		}
+	}
 </style>

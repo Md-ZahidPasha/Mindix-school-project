@@ -4,8 +4,9 @@
 	import StudentAttendance from '$lib/components/principal/StudentAttendance.svelte';
 	import TeacherAttendance from '$lib/components/principal/TeacherAttendance.svelte';
 	import EmployeeAttendance from '$lib/components/principal/EmployeeAttendance.svelte';
+	import QrScanner from '$lib/components/principal/QrScanner.svelte';
 
-	let selectedType = $state<'students' | 'teachers' | 'employees'>('students');
+	let selectedType = $state<'students' | 'teachers' | 'employees' | 'qr'>('students');
 </script>
 
 <div class="principal-layout">
@@ -26,8 +27,10 @@
 				<StudentAttendance />
 			{:else if selectedType === 'teachers'}
 				<TeacherAttendance />
-			{:else}
+			{:else if selectedType === 'employees'}
 				<EmployeeAttendance />
+			{:else}
+				<QrScanner />
 			{/if}
 		</div>
 	</main>

@@ -11,6 +11,11 @@
         Heart,
         Coffee
     } from '@lucide/svelte';
+    import {
+        getLeaveApplications,
+        createLeaveApplication,
+        type LeaveApplication
+    } from '$lib/services/leave';
 
     let showForm = $state(false);
 
@@ -18,85 +23,82 @@
     let fromDate = $state('');
     let toDate = $state('');
     let reason = $state('');
+    let isLoading = $state(true);
+    let error = $state('');
+    let success = $state('');
 
-    const leaveBalance = [
-        {
-            type: 'Casual Leave',
-            total: 12,
-            used: 4,
-            remaining: 8,
-            icon: Coffee,
-            className: 'blue'
-        },
-        {
-            type: 'Sick Leave',
-            total: 10,
-            used: 2,
-            remaining: 8,
-            icon: Heart,
-            className: 'red'
-        },
-        {
-            type: 'Earned Leave',
-            total: 15,
-            used: 3,
-            remaining: 12,
-            icon: Briefcase,
-            className: 'green'
+    let leaveRequests = $state<LeaveApplication[]>([]);
+
+    async function loadLeave() {
+        isLoading = true;
+        error = '';
+        try {
+            const institutionId = localStorage.getItem('institution_id');
+            if (!institutionId) throw new Error('Institution scope is missing. Please sign in again.');
+            const employeeId = localStorage.getItem('employee_id') || undefined;
+            leaveRequests = await getLeaveApplications(institutionId, employeeId);
+        } catch (err) {
+            error = err instanceof Error ? err.message : 'Unable to load leave requests.';
+        } finally {
+            isLoading = false;
         }
-    ];
+    }
 
-    const leaveRequests = [
-        {
-            type: 'Casual Leave',
-            from: '18 Aug 2026',
-            to: '19 Aug 2026',
-            days: 2,
-            reason: 'Personal work',
-            appliedOn: '10 Aug 2026',
-            status: 'Pending'
-        },
-        {
-            type: 'Sick Leave',
-            from: '28 Jul 2026',
-            to: '29 Jul 2026',
-            days: 2,
-            reason: 'Not feeling well',
-            appliedOn: '27 Jul 2026',
-            status: 'Approved'
-        },
-        {
-            type: 'Casual Leave',
-            from: '15 Jul 2026',
-            to: '15 Jul 2026',
-            days: 1,
-            reason: 'Family function',
-            appliedOn: '10 Jul 2026',
-            status: 'Approved'
-        },
-        {
-            type: 'Earned Leave',
-            from: '22 Jun 2026',
-            to: '24 Jun 2026',
-            days: 3,
-            reason: 'Personal work',
-            appliedOn: '15 Jun 2026',
-            status: 'Rejected'
-        }
-    ];
-
-    function submitLeave() {
+    async function submitLeave() {
         if (!fromDate || !toDate || !reason.trim()) {
             alert('Please fill in all leave details.');
             return;
         }
 
-        alert('Leave request submitted successfully.');
-        showForm = false;
-        fromDate = '';
-        toDate = '';
-        reason = '';
+        error = '';
+        success = '';
+        try {
+            const userId = localStorage.getItem('user_id');
+            const institutionId = localStorage.getItem('institution_id');
+            const employeeId = localStorage.getItem('employee_id') || undefined;
+            if (!userId || !institutionId) {
+                throw new Error('Account scope is missing. Please sign in again.');
+            }
+            await createLeaveApplication({
+                user_id: userId,
+                institution_id: institutionId,
+                employee_id: employeeId,
+                leave_type: leaveType,
+                start_date: fromDate,
+                end_date: toDate,
+                reason: reason.trim()
+            });
+            success = 'Leave request submitted successfully.';
+            showForm = false;
+            fromDate = '';
+            toDate = '';
+            reason = '';
+            await loadLeave();
+        } catch (err) {
+            error = err instanceof Error ? err.message : 'Unable to submit leave request.';
+        }
     }
+
+    const approvedCount = $derived(leaveRequests.filter((r) => (r.status || '').toLowerCase() === 'approved').length);
+    const pendingCount = $derived(leaveRequests.filter((r) => (r.status || '').toLowerCase() === 'pending').length);
+    const rejectedCount = $derived(leaveRequests.filter((r) => (r.status || '').toLowerCase() === 'rejected').length);
+
+    function fmtDate(value: string): string {
+        const d = new Date(value);
+        if (isNaN(d.getTime())) return value;
+        return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    function daysBetween(start: string, end: string): number {
+        const s = new Date(start);
+        const e = new Date(end);
+        if (isNaN(s.getTime()) || isNaN(e.getTime())) return 1;
+        return Math.max(1, Math.round((e.getTime() - s.getTime()) / 86400000) + 1);
+    }
+
+    $effect(() => {
+        loadLeave();
+    });
 </script>
 
 <svelte:head>
@@ -261,10 +263,10 @@
         <div class="section-heading">
 
             <div>
-                <h2>Leave Balance</h2>
+                <h2>Leave Summary</h2>
 
                 <p>
-                    Your available leave for the current year.
+                    Your leave request statistics.
                 </p>
             </div>
 
@@ -273,47 +275,77 @@
 
         <div class="balance-grid">
 
-            {#each leaveBalance as leave}
+            <div class="balance-card">
 
-                <div class="balance-card">
+                <div class="balance-icon blue">
+                    <FileText size={21} />
+                </div>
 
-                    <div class={`balance-icon ${leave.className}`}>
-                        <leave.icon size={21} />
-                    </div>
+                <div class="balance-content">
 
-                    <div class="balance-content">
+                    <span>
+                        Total Requests
+                    </span>
 
-                        <span>
-                            {leave.type}
-                        </span>
+                    <strong>
+                        {leaveRequests.length}
+                    </strong>
 
-                        <strong>
-                            {leave.remaining}
-                        </strong>
-
-                        <small>
-                            days remaining
-                        </small>
-
-                    </div>
-
-                    <div class="balance-details">
-
-                        <span>
-                            Total
-                            <strong>{leave.total}</strong>
-                        </span>
-
-                        <span>
-                            Used
-                            <strong>{leave.used}</strong>
-                        </span>
-
-                    </div>
+                    <small>
+                        applications
+                    </small>
 
                 </div>
 
-            {/each}
+            </div>
+
+            <div class="balance-card">
+
+                <div class="balance-icon green">
+                    <CheckCircle2 size={21} />
+                </div>
+
+                <div class="balance-content">
+
+                    <span>
+                        Approved
+                    </span>
+
+                    <strong>
+                        {approvedCount}
+                    </strong>
+
+                    <small>
+                        applications
+                    </small>
+
+                </div>
+
+            </div>
+
+            <div class="balance-card">
+
+                <div class="balance-icon orange">
+                    <Clock3 size={21} />
+                </div>
+
+                <div class="balance-content">
+
+                    <span>
+                        Pending
+                    </span>
+
+                    <strong>
+                        {pendingCount}
+                    </strong>
+
+                    <small>
+                        applications
+                    </small>
+
+                </div>
+
+            </div>
 
         </div>
 
@@ -344,6 +376,11 @@
 
         <div class="requests-card">
 
+            {#if isLoading}
+                <div class="empty-row">Loading...</div>
+            {:else if leaveRequests.length === 0}
+                <div class="empty-row">No leave requests yet.</div>
+            {:else}
             <div class="table-wrapper">
 
                 <table>
@@ -369,7 +406,7 @@
 
                                 <td>
                                     <strong>
-                                        {request.type}
+                                        {request.leave_type}
                                     </strong>
                                 </td>
 
@@ -380,9 +417,9 @@
                                         <CalendarDays size={13} />
 
                                         <span>
-                                            {request.from}
-                                            {#if request.from !== request.to}
-                                                - {request.to}
+                                            {fmtDate(request.start_date)}
+                                            {#if request.start_date !== request.end_date}
+                                                - {fmtDate(request.end_date)}
                                             {/if}
                                         </span>
 
@@ -391,28 +428,28 @@
                                 </td>
 
                                 <td>
-                                    {request.days}
-                                    {request.days === 1 ? ' day' : ' days'}
+                                    {daysBetween(request.start_date, request.end_date)}
+                                    {daysBetween(request.start_date, request.end_date) === 1 ? ' day' : ' days'}
                                 </td>
 
                                 <td>
-                                    {request.reason}
+                                    {request.reason || '—'}
                                 </td>
 
                                 <td>
-                                    {request.appliedOn}
+                                    {request.created_at ? fmtDate(request.created_at) : '—'}
                                 </td>
 
                                 <td>
 
-                                    {#if request.status === 'Approved'}
+                                    {#if (request.status || '').toLowerCase() === 'approved'}
 
                                         <span class="status approved">
                                             <CheckCircle2 size={12} />
                                             Approved
                                         </span>
 
-                                    {:else if request.status === 'Pending'}
+                                    {:else if (request.status || '').toLowerCase() === 'pending'}
 
                                         <span class="status pending">
                                             <Clock3 size={12} />
@@ -439,6 +476,7 @@
                 </table>
 
             </div>
+            {/if}
 
         </div>
 
@@ -472,9 +510,7 @@
             <div>
                 <span>Approved</span>
                 <strong>
-                    {leaveRequests.filter(
-                        (request) => request.status === 'Approved'
-                    ).length}
+                    {approvedCount}
                 </strong>
                 <small>Approved requests</small>
             </div>
@@ -491,9 +527,7 @@
             <div>
                 <span>Pending</span>
                 <strong>
-                    {leaveRequests.filter(
-                        (request) => request.status === 'Pending'
-                    ).length}
+                    {pendingCount}
                 </strong>
                 <small>Awaiting approval</small>
             </div>
@@ -504,28 +538,47 @@
 
 
     <!-- INFORMATION -->
-    <section class="information-note">
+    {#if error}
+        <section class="information-note error-note">
 
-        <div class="information-icon">
-            <Info size={18} />
-        </div>
+            <div class="information-icon">
+                <Info size={18} />
+            </div>
 
-        <div>
+            <div>
 
-            <strong>
-                Leave Information
-            </strong>
+                <strong>
+                    Unable to load leave data
+                </strong>
 
-            <p>
-                Leave balance and request information shown here is
-                currently demo data. During API integration, balances,
-                requests and approval status will be retrieved from
-                the backend.
-            </p>
+                <p>
+                    {error}
+                </p>
 
-        </div>
+            </div>
 
-    </section>
+        </section>
+    {/if}
+
+    {#if success}
+        <section class="information-note success-note">
+
+            <div class="information-icon">
+                <CheckCircle2 size={18} />
+            </div>
+
+            <div>
+
+                <strong>
+                    {success}
+                </strong>
+
+            </div>
+
+        </section>
+    {/if}
+
+    <div class="empty-row-hint"></div>
 
 </div>
 
@@ -1030,6 +1083,45 @@
         color: #475569;
         font-size: 10px;
         line-height: 1.5;
+    }
+
+    .information-note.error-note {
+        border-color: #fecaca;
+        background: #fef2f2;
+    }
+
+    .information-note.error-note .information-icon {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+
+    .information-note.error-note strong {
+        color: #b91c1c;
+    }
+
+    .information-note.success-note {
+        border-color: #bbf7d0;
+        background: #f0fdf4;
+    }
+
+    .information-note.success-note .information-icon {
+        background: #dcfce7;
+        color: #16a34a;
+    }
+
+    .information-note.success-note strong {
+        color: #15803d;
+    }
+
+    .empty-row {
+        padding: 30px;
+        color: #94a3b8;
+        font-size: 11px;
+        text-align: center;
+    }
+
+    .empty-row-hint {
+        height: 1px;
     }
 
 

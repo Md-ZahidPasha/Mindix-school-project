@@ -87,6 +87,27 @@ class ParentLoginResponse(BaseModel):
     token_type: str = "bearer"
 
 # ==========================================
+# Staff / Employee Login
+# ==========================================
+class StaffLoginRequest(BaseModel):
+    institution_name: str
+    email: str
+    password: str
+
+
+class StaffLoginResponse(BaseModel):
+    message: str
+    user_id: str
+    institution_id: str
+    role: str
+    full_name: str
+    access_token: str
+    token_type: str = "bearer"
+    employee_id: str | None = None
+    teacher_id: str | None = None
+
+
+# ==========================================
 # JWT Token
 # ==========================================
 class TokenResponse(BaseModel):

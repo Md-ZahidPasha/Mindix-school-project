@@ -8,17 +8,39 @@
         CalendarDays,
         HelpCircle
     } from '@lucide/svelte';
+    import { API } from '$lib/config/api';
 
     let message = $state('');
+    let isLoading = $state(false);
+    let error = $state('');
+    type ChatMessage = { sender: 'user' | 'assistant'; text: string };
+    let messages = $state<ChatMessage[]>([]);
 
-    function sendMessage() {
+    async function sendMessage() {
         if (!message.trim()) {
             return;
         }
-
-        // AI backend integration will be added later.
+        const question = message.trim();
+        const token = localStorage.getItem('access_token');
+        if (!token) { error = 'Please sign in again to use the AI Assistant.'; return; }
+        messages.push({ sender: 'user', text: question });
         message = '';
+        isLoading = true;
+        error = '';
+        try {
+            const response = await fetch(API.aiChat, {
+                method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ message: question })
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.detail || 'The assistant could not respond.');
+            messages.push({ sender: 'assistant', text: result.answer });
+        } catch (err) {
+            error = err instanceof Error ? err.message : 'Unable to reach the AI Assistant.';
+        } finally { isLoading = false; }
     }
+
+    function usePrompt(prompt: string) { message = prompt; }
 </script>
 
 <svelte:head>
@@ -71,7 +93,7 @@
              ========================= -->
 
         <div class="quick-actions">
-            <button type="button" class="quick-action">
+            <button type="button" class="quick-action" onclick={() => usePrompt('Help me make a study plan for this week.')}>
                 <BookOpen size={18} />
 
                 <div>
@@ -80,7 +102,7 @@
                 </div>
             </button>
 
-            <button type="button" class="quick-action">
+            <button type="button" class="quick-action" onclick={() => usePrompt('How can I prepare effectively for my upcoming exams?')}>
                 <GraduationCap size={18} />
 
                 <div>
@@ -89,7 +111,7 @@
                 </div>
             </button>
 
-            <button type="button" class="quick-action">
+            <button type="button" class="quick-action" onclick={() => usePrompt('What should I check in my academic schedule this week?')}>
                 <CalendarDays size={18} />
 
                 <div>
@@ -98,7 +120,7 @@
                 </div>
             </button>
 
-            <button type="button" class="quick-action">
+            <button type="button" class="quick-action" onclick={() => usePrompt('What can you help me with in PaperBuddy?')}>
                 <HelpCircle size={18} />
 
                 <div>
@@ -113,6 +135,7 @@
              ========================= -->
 
         <div class="chat-area">
+            {#if messages.length === 0}
             <div class="empty-chat">
                 <Bot size={28} />
 
@@ -123,6 +146,14 @@
                     here.
                 </p>
             </div>
+            {:else}
+            <div class="messages">
+                {#each messages as chatMessage}
+                    <div class:from-user={chatMessage.sender === 'user'} class="chat-message">{chatMessage.text}</div>
+                {/each}
+                {#if isLoading}<div class="chat-message">Thinking…</div>{/if}
+            </div>
+            {/if}
         </div>
 
         <!-- =========================
@@ -147,7 +178,7 @@
                 class="send-button"
                 aria-label="Send message"
                 onclick={sendMessage}
-                disabled={!message.trim()}
+                disabled={!message.trim() || isLoading}
             >
                 <Send size={18} />
             </button>
@@ -156,10 +187,10 @@
         <div class="assistant-note">
             <Sparkles size={13} />
             <span>
-                AI Assistant will be connected to the PaperBuddy backend
-                during integration.
+                Responses are generated securely by PaperBuddy’s backend AI service.
             </span>
         </div>
+        {#if error}<p class="chat-error">{error}</p>{/if}
     </section>
 </div>
 
@@ -370,6 +401,10 @@
         color: #94a3b8;
         font-size: 11px;
     }
+    .messages { width: 100%; max-width: 850px; display: flex; flex-direction: column; gap: 10px; }
+    .chat-message { align-self: flex-start; max-width: 80%; white-space: pre-wrap; padding: 11px 14px; color: #1e293b; background: white; border: 1px solid #e2e8f0; border-radius: 12px; font-size: 13px; line-height: 1.5; }
+    .chat-message.from-user { align-self: flex-end; color: white; background: #2563eb; border-color: #2563eb; }
+    .chat-error { margin: 10px auto 0; max-width: 900px; color: #b91c1c; font-size: 12px; }
 
     /* =========================
        MESSAGE BOX

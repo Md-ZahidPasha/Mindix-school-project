@@ -4,6 +4,8 @@ from app.models.institution import Institution
 from app.models.student import Student
 from app.models.parent import Parent
 from app.models.user import User
+from app.models.employee import Employee
+from app.models.teacher import Teacher
 
 from app.schemas.auth import (
     InstitutionLoginRequest,
@@ -12,12 +14,16 @@ from app.schemas.auth import (
     StudentLoginResponse,
     ParentLoginRequest,
     ParentLoginResponse,
+    StaffLoginRequest,
+    StaffLoginResponse,
 )
 
 from app.core.security import (
     verify_password,
     create_access_token,
 )
+
+STAFF_ROLES = {"principal", "teacher", "staff", "employee"}
 
 
 # ==========================================
@@ -191,4 +197,90 @@ def login_parent(
         full_name=user.full_name,
         access_token=access_token,
         token_type="bearer",
+    )
+
+
+# ==========================================
+# Staff / Employee Login
+# ==========================================
+def login_staff(
+    db: Session,
+    login_data: StaffLoginRequest,
+):
+    institution = (
+        db.query(Institution)
+        .filter(
+            Institution.institution_name == login_data.institution_name
+        )
+        .first()
+    )
+
+    if not institution:
+        return None
+
+    user = (
+        db.query(User)
+        .filter(
+            User.email == login_data.email,
+            User.institution_id == institution.id,
+        )
+        .first()
+    )
+
+    if not user:
+        return None
+
+    role = (user.role or "").lower()
+    if role not in STAFF_ROLES:
+        return None
+
+    if user.status != "active":
+        return None
+
+    if not verify_password(login_data.password, user.password_hash):
+        return None
+
+    employee_id = None
+    teacher_id = None
+    if role == "employee":
+        employee = (
+            db.query(Employee)
+            .filter(
+                Employee.user_id == user.id,
+                Employee.institution_id == institution.id,
+            )
+            .first()
+        )
+        employee_id = str(employee.id) if employee else None
+    elif role == "teacher":
+        teacher = (
+            db.query(Teacher)
+            .filter(
+                Teacher.user_id == user.id,
+                Teacher.institution_id == institution.id,
+            )
+            .first()
+        )
+        teacher_id = str(teacher.id) if teacher else None
+
+    access_token = create_access_token(
+        data={
+            "user_id": str(user.id),
+            "institution_id": str(institution.id),
+            "role": role,
+            "teacher_id": teacher_id,
+            "employee_id": employee_id,
+        }
+    )
+
+    return StaffLoginResponse(
+        message="Login successful",
+        user_id=str(user.id),
+        institution_id=str(institution.id),
+        role=role,
+        full_name=user.full_name,
+        access_token=access_token,
+        token_type="bearer",
+        employee_id=employee_id,
+        teacher_id=teacher_id,
     )

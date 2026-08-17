@@ -1,1094 +1,583 @@
 <script lang="ts">
-    import PrincipalSidebar from '$lib/components/principal/PrincipalSidebar.svelte';
-    type LeaveType = 'teacher' | 'employee';
-    type LeaveStatus = 'pending' | 'approved' | 'rejected';
+	import { CalendarDays, CheckCircle2, XCircle, Clock, Users, RefreshCw, Sparkles } from '@lucide/svelte';
+	import { getLeaveApplications, updateLeaveApplication, type LeaveApplication } from '$lib/services/leave';
+	import { suggestSubstitutes, confirmSubstitution, type SubstituteSuggestion } from '$lib/services/substitution';
 
-    type LeaveRequest = {
-        id: number;
-        personId: string;
-        name: string;
-        role: LeaveType;
-        department: string;
-        leaveType: string;
-        fromDate: string;
-        toDate: string;
-        days: number;
-        reason: string;
-        status: LeaveStatus;
-    };
+	let leaves = $state<LeaveApplication[]>([]);
+	let isLoading = $state(true);
+	let error = $state('');
+	let success = $state('');
 
-    let selectedType = $state<'all' | LeaveType>('all');
-    let selectedStatus = $state<'all' | LeaveStatus>('pending');
+	let suggestions = $state<SubstituteSuggestion[]>([]);
+	let suggestionsLoading = $state(false);
+	let selectedLeave = $state<string | null>(null);
 
-    let requests = $state<LeaveRequest[]>([
-        {
-            id: 1,
-            personId: 'TCH001',
-            name: 'Rahul Sharma',
-            role: 'teacher',
-            department: 'Mathematics',
-            leaveType: 'Casual Leave',
-            fromDate: '18 Aug 2026',
-            toDate: '19 Aug 2026',
-            days: 2,
-            reason: 'Personal work',
-            status: 'pending'
-        },
-        {
-            id: 2,
-            personId: 'TCH004',
-            name: 'Sana Khan',
-            role: 'teacher',
-            department: 'Biology',
-            leaveType: 'Medical Leave',
-            fromDate: '20 Aug 2026',
-            toDate: '21 Aug 2026',
-            days: 2,
-            reason: 'Medical appointment',
-            status: 'pending'
-        },
-        {
-            id: 3,
-            personId: 'EMP002',
-            name: 'Ravi Kumar',
-            role: 'employee',
-            department: 'Driving',
-            leaveType: 'Casual Leave',
-            fromDate: '22 Aug 2026',
-            toDate: '22 Aug 2026',
-            days: 1,
-            reason: 'Family function',
-            status: 'pending'
-        },
-        {
-            id: 4,
-            personId: 'EMP004',
-            name: 'Lakshmi Devi',
-            role: 'employee',
-            department: 'Library',
-            leaveType: 'Personal Leave',
-            fromDate: '15 Aug 2026',
-            toDate: '16 Aug 2026',
-            days: 2,
-            reason: 'Personal reasons',
-            status: 'approved'
-        }
-    ]);
+	async function load() {
+		isLoading = true;
+		error = '';
+		try {
+			const institutionId = localStorage.getItem('institution_id');
+			if (!institutionId) throw new Error('Institution scope is missing. Please sign in again.');
+			leaves = await getLeaveApplications(institutionId);
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Unable to load leave applications.';
+		} finally {
+			isLoading = false;
+		}
+	}
 
-    let filteredRequests = $derived(
-        requests.filter((request) => {
-            const typeMatch =
-                selectedType === 'all' ||
-                request.role === selectedType;
+	async function review(leave: LeaveApplication, status: string) {
+		error = '';
+		success = '';
+		try {
+			const institutionId = localStorage.getItem('institution_id');
+			await updateLeaveApplication(leave.id, institutionId!, { status });
+			success = `Leave ${status} successfully.`;
+			await load();
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Unable to update leave status.';
+		}
+	}
 
-            const statusMatch =
-                selectedStatus === 'all' ||
-                request.status === selectedStatus;
+	async function getSuggestions(leave: LeaveApplication) {
+		error = '';
+		success = '';
+		suggestionsLoading = true;
+		selectedLeave = leave.id;
+		suggestions = [];
+		try {
+			suggestions = await suggestSubstitutes(leave.id);
+			if (suggestions.length === 0) {
+				success = 'No substitute teachers are available for this leave.';
+			}
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Unable to suggest substitutes.';
+		} finally {
+			suggestionsLoading = false;
+		}
+	}
 
-            return typeMatch && statusMatch;
-        })
-    );
+	async function confirm(suggestion: SubstituteSuggestion) {
+		error = '';
+		success = '';
+		try {
+			await confirmSubstitution({
+				leave_application_id: suggestion.leave_application_id,
+				teacher_id: suggestion.teacher_id || undefined,
+				substitute_teacher_id: suggestion.substitute_teacher_id,
+				class_id: suggestion.class_id,
+				subject_id: suggestion.subject_id || undefined,
+				day_of_week: suggestion.day_of_week,
+				period: suggestion.period
+			});
+			success = `Substitution confirmed — ${suggestion.substitute_name} will cover the class.`;
+			suggestions = [];
+			selectedLeave = null;
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Unable to confirm substitution.';
+		}
+	}
 
-    let pendingCount = $derived(
-        requests.filter((request) => request.status === 'pending').length
-    );
+	function fmtDate(value: string): string {
+		const d = new Date(value);
+		if (isNaN(d.getTime())) return value;
+		return d.toLocaleDateString();
+	}
 
-    let teacherCount = $derived(
-        requests.filter(
-            (request) =>
-                request.role === 'teacher' &&
-                request.status === 'pending'
-        ).length
-    );
+	const pending = $derived(leaves.filter((l) => (l.status || '').toLowerCase() === 'pending'));
+	const approved = $derived(leaves.filter((l) => (l.status || '').toLowerCase() === 'approved'));
+	const rejected = $derived(leaves.filter((l) => (l.status || '').toLowerCase() === 'rejected'));
 
-    let employeeCount = $derived(
-        requests.filter(
-            (request) =>
-                request.role === 'employee' &&
-                request.status === 'pending'
-        ).length
-    );
-
-    function updateStatus(
-        requestId: number,
-        status: LeaveStatus
-    ) {
-        const request = requests.find(
-            (item) => item.id === requestId
-        );
-
-        if (request) {
-            request.status = status;
-            requests = [...requests];
-        }
-    }
-
-    function roleLabel(role: LeaveType) {
-        return role === 'teacher'
-            ? 'Teacher'
-            : 'Employee';
-    }
+	$effect(() => {
+		load();
+	});
 </script>
 
-
-<div class="principal-layout">
-    <PrincipalSidebar />
-
-    <main class="main-content">
-        <div class="leave-page">
-
-    <!-- =========================
-         PAGE HEADER
-         ========================= -->
-
-    <header class="page-header">
-
-        <div>
-            <h1>Teacher / Employee Leave</h1>
-
-            <p>
-                Review and manage leave requests submitted by teachers and employees.
-            </p>
-        </div>
-
-    </header>
-
-
-    <!-- =========================
-         SUMMARY CARDS
-         ========================= -->
-
-    <section class="summary-grid">
-
-        <div class="summary-card">
-
-            <div class="summary-icon pending">
-                ⏳
-            </div>
-
-            <div>
-                <span>Pending Requests</span>
-                <strong>{pendingCount}</strong>
-            </div>
-
-        </div>
-
-
-        <div class="summary-card">
-
-            <div class="summary-icon teacher">
-                T
-            </div>
-
-            <div>
-                <span>Teacher Requests</span>
-                <strong>{teacherCount}</strong>
-            </div>
-
-        </div>
-
-
-        <div class="summary-card">
-
-            <div class="summary-icon employee">
-                E
-            </div>
-
-            <div>
-                <span>Employee Requests</span>
-                <strong>{employeeCount}</strong>
-            </div>
-
-        </div>
-
-    </section>
-
-
-    <!-- =========================
-         FILTERS
-         ========================= -->
-
-    <section class="filter-card">
-
-        <div class="filter-field">
-
-            <label for="leave-type">
-                Request Type
-            </label>
-
-            <select
-                id="leave-type"
-                bind:value={selectedType}
-            >
-                <option value="all">
-                    All
-                </option>
-
-                <option value="teacher">
-                    Teachers
-                </option>
-
-                <option value="employee">
-                    Employees
-                </option>
-            </select>
-
-        </div>
-
-
-        <div class="filter-field">
-
-            <label for="leave-status">
-                Status
-            </label>
-
-            <select
-                id="leave-status"
-                bind:value={selectedStatus}
-            >
-                <option value="pending">
-                    Pending
-                </option>
-
-                <option value="approved">
-                    Approved
-                </option>
-
-                <option value="rejected">
-                    Rejected
-                </option>
-
-                <option value="all">
-                    All Status
-                </option>
-            </select>
-
-        </div>
-
-    </section>
-
-
-    <!-- =========================
-         REQUEST LIST
-         ========================= -->
-
-    <section class="requests-section">
-
-        <div class="section-title">
-
-            <div>
-                <h2>Leave Requests</h2>
-
-                <p>
-                    Review requests and approve or reject them.
-                </p>
-            </div>
-
-            <span class="request-count">
-                {filteredRequests.length} requests
-            </span>
-
-        </div>
-
-
-        {#if filteredRequests.length > 0}
-
-            <div class="requests-list">
-
-                {#each filteredRequests as request}
-
-                    <article class="request-card">
-
-                        <!-- PERSON -->
-
-                        <div class="person-section">
-
-                            <div class="avatar">
-                                {request.name.charAt(0)}
-                            </div>
-
-                            <div class="person-info">
-
-                                <h3>
-                                    {request.name}
-                                </h3>
-
-                                <p>
-                                    {request.personId}
-                                    ·
-                                    {roleLabel(request.role)}
-                                </p>
-
-                                <span class="department">
-                                    {request.department}
-                                </span>
-
-                            </div>
-
-                        </div>
-
-
-                        <!-- LEAVE DETAILS -->
-
-                        <div class="leave-details">
-
-                            <div class="detail">
-
-                                <span>Leave Type</span>
-
-                                <strong>
-                                    {request.leaveType}
-                                </strong>
-
-                            </div>
-
-
-                            <div class="detail">
-
-                                <span>From</span>
-
-                                <strong>
-                                    {request.fromDate}
-                                </strong>
-
-                            </div>
-
-
-                            <div class="detail">
-
-                                <span>To</span>
-
-                                <strong>
-                                    {request.toDate}
-                                </strong>
-
-                            </div>
-
-
-                            <div class="detail">
-
-                                <span>Days</span>
-
-                                <strong>
-                                    {request.days}
-                                </strong>
-
-                            </div>
-
-                        </div>
-
-
-                        <!-- REASON -->
-
-                        <div class="reason">
-
-                            <span>Reason</span>
-
-                            <p>
-                                {request.reason}
-                            </p>
-
-                        </div>
-
-
-                        <!-- STATUS / ACTION -->
-
-                        <div class="request-action">
-
-                            <span
-                                class:status-pending={request.status === 'pending'}
-                                class:status-approved={request.status === 'approved'}
-                                class:status-rejected={request.status === 'rejected'}
-                                class="status"
-                            >
-                                {request.status.charAt(0).toUpperCase() +
-                                    request.status.slice(1)}
-                            </span>
-
-
-                            {#if request.status === 'pending'}
-
-                                <div class="action-buttons">
-
-                                    <button
-                                        type="button"
-                                        class="approve"
-                                        onclick={() =>
-                                            updateStatus(
-                                                request.id,
-                                                'approved'
-                                            )
-                                        }
-                                    >
-                                        ✓ Approve
-                                    </button>
-
-
-                                    <button
-                                        type="button"
-                                        class="reject"
-                                        onclick={() =>
-                                            updateStatus(
-                                                request.id,
-                                                'rejected'
-                                            )
-                                        }
-                                    >
-                                        ✕ Reject
-                                    </button>
-
-                                </div>
-
-                            {:else}
-
-                                <span class="processed">
-                                    Request processed
-                                </span>
-
-                            {/if}
-
-                        </div>
-
-                    </article>
-
-                {/each}
-
-            </div>
-
-        {:else}
-
-            <div class="empty-state">
-
-                <div class="empty-icon">
-                    ✓
-                </div>
-
-                <h3>
-                    No leave requests found
-                </h3>
-
-                <p>
-                    There are no requests matching the selected filters.
-                </p>
-
-            </div>
-
-        {/if}
-
-    </section>
-
-        
-  </div>
- </main>
+<div class="leave-page">
+	<div class="page-header">
+		<div class="title-section">
+			<div class="title-icon">
+				<CalendarDays size={26} />
+			</div>
+			<div>
+				<h1>Leave & Substitution</h1>
+				<p>Review leave applications and assign substitute teachers</p>
+			</div>
+		</div>
+		<button class="refresh-btn" type="button" onclick={load}>
+			<RefreshCw size={15} /> Refresh
+		</button>
+	</div>
+
+	{#if error}
+		<div class="error-box">{error}</div>
+	{/if}
+	{#if success}
+		<div class="success-box">{success}</div>
+	{/if}
+
+	<div class="summary-grid">
+		<div class="summary-card">
+			<div class="summary-icon pending-icon"><Clock size={20} /></div>
+			<div><span>Pending</span><strong>{pending.length}</strong></div>
+		</div>
+		<div class="summary-card">
+			<div class="summary-icon approved-icon"><CheckCircle2 size={20} /></div>
+			<div><span>Approved</span><strong>{approved.length}</strong></div>
+		</div>
+		<div class="summary-card">
+			<div class="summary-icon rejected-icon"><XCircle size={20} /></div>
+			<div><span>Rejected</span><strong>{rejected.length}</strong></div>
+		</div>
+	</div>
+
+	<section class="card">
+		<h2>Leave Applications</h2>
+		{#if isLoading}
+			<p class="empty">Loading...</p>
+		{:else if leaves.length === 0}
+			<p class="empty">No leave applications yet.</p>
+		{:else}
+			<div class="leave-list">
+				{#each leaves as leave}
+					{@const status = (leave.status || 'pending').toLowerCase()}
+					<div class="leave-item">
+						<div class="leave-icon"><CalendarDays size={19} /></div>
+						<div class="leave-info">
+							<strong>{leave.leave_type}</strong>
+							<span>{fmtDate(leave.start_date)} → {fmtDate(leave.end_date)}</span>
+							<span class="reason">{leave.reason || 'No reason provided'}</span>
+							<span class="applied">Applied: {leave.created_at ? fmtDate(leave.created_at) : '—'}</span>
+						</div>
+						<div class="leave-status">
+							<span class="status-badge status-{status}">
+								{(leave.status || 'pending').toUpperCase()}
+							</span>
+						</div>
+						{#if status === 'pending'}
+							<div class="actions">
+								<button class="approve-btn" type="button" onclick={() => review(leave, 'approved')}>
+									<CheckCircle2 size={14} /> Approve
+								</button>
+								<button class="reject-btn" type="button" onclick={() => review(leave, 'rejected')}>
+									<XCircle size={14} /> Reject
+								</button>
+								<button class="suggest-btn" type="button" onclick={() => getSuggestions(leave)}>
+									<Users size={14} /> Substitute
+								</button>
+							</div>
+						{/if}
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</section>
+
+	{#if selectedLeave}
+		<section class="card suggestions-card">
+			<div class="suggestions-header">
+				<div class="title-section">
+					<div class="title-icon sparkle-icon">
+						<Sparkles size={20} />
+					</div>
+					<div>
+						<h2>Suggested Substitutes</h2>
+						<p>Smart substitution suggestions for this leave</p>
+					</div>
+				</div>
+				<button class="close-btn" type="button" onclick={() => (selectedLeave = null)}>×</button>
+			</div>
+
+			{#if suggestionsLoading}
+				<p class="empty">Finding substitutes...</p>
+			{:else if suggestions.length === 0}
+				<p class="empty">No substitute suggestions available.</p>
+			{:else}
+				<div class="suggestion-list">
+					{#each suggestions as suggestion}
+						<div class="suggestion-item">
+							<div class="suggestion-icon"><Users size={18} /></div>
+							<div class="suggestion-info">
+								<strong>{suggestion.substitute_name}</strong>
+								<span>
+									{suggestion.subject_name || 'Subject'} · {suggestion.class_name || 'Class'} · Day {suggestion.day_of_week} · Period {suggestion.period}
+								</span>
+								<span class="reason">{suggestion.reason}</span>
+							</div>
+							<button class="confirm-btn" type="button" onclick={() => confirm(suggestion)}>
+								Assign
+							</button>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</section>
+	{/if}
 </div>
 
-
-<style lang="scss">
-.principal-layout {
-    display: flex;
-    min-height: 100vh;
-    background: #f7f9fc;
-}
-
-.main-content {
-    flex: 1;
-    min-width: 0;
-}
-
-.leave-page {
-    min-height: 100vh;
-
-    padding: 28px 32px;
-
-    box-sizing: border-box;
-
-    background: #f7f9fc;
-}
-
-
-/* =========================
-   HEADER
-   ========================= */
-
-.page-header {
-    margin-bottom: 24px;
-}
-
-.page-header h1 {
-    margin: 0;
-
-    color: #14213d;
-
-    font-size: 30px;
-}
-
-.page-header p {
-    margin: 7px 0 0;
-
-    color: #64748b;
-
-    font-size: 15px;
-}
-
-
-/* =========================
-   SUMMARY
-   ========================= */
-
-.summary-grid {
-    display: grid;
-
-    grid-template-columns:
-        repeat(3, 1fr);
-
-    gap: 16px;
-
-    margin-bottom: 20px;
-}
-
-.summary-card {
-    display: flex;
-
-    align-items: center;
-
-    gap: 14px;
-
-    padding: 20px;
-
-    background: white;
-
-    border: 1px solid #e5eaf2;
-
-    border-radius: 16px;
-
-    box-shadow:
-        0 4px 14px
-        rgba(15, 23, 42, 0.03);
-}
-
-.summary-icon {
-    width: 44px;
-    height: 44px;
-
-    display: flex;
-
-    align-items: center;
-    justify-content: center;
-
-    border-radius: 12px;
-
-    font-weight: 800;
-}
-
-.summary-icon.pending {
-    background: #fff7ed;
-    color: #ea580c;
-}
-
-.summary-icon.teacher {
-    background: #eef4ff;
-    color: #2563eb;
-}
-
-.summary-icon.employee {
-    background: #f0fdf4;
-    color: #16a34a;
-}
-
-.summary-card span {
-    display: block;
-
-    margin-bottom: 4px;
-
-    color: #64748b;
-
-    font-size: 12px;
-}
-
-.summary-card strong {
-    color: #14213d;
-
-    font-size: 23px;
-}
-
-
-/* =========================
-   FILTER
-   ========================= */
-
-.filter-card {
-    display: flex;
-
-    gap: 16px;
-
-    padding: 20px;
-
-    margin-bottom: 24px;
-
-    background: white;
-
-    border: 1px solid #e5eaf2;
-
-    border-radius: 16px;
-}
-
-.filter-field {
-    width: 230px;
-}
-
-.filter-field label {
-    display: block;
-
-    margin-bottom: 7px;
-
-    color: #334155;
-
-    font-size: 12px;
-
-    font-weight: 600;
-}
-
-select {
-    width: 100%;
-
-    height: 42px;
-
-    padding: 0 11px;
-
-    border: 1px solid #dbe3ef;
-
-    border-radius: 9px;
-
-    background: white;
-
-    color: #1e293b;
-
-    font-size: 13px;
-
-    outline: none;
-}
-
-select:focus {
-    border-color: #2563eb;
-
-    box-shadow:
-        0 0 0 3px
-        rgba(37, 99, 235, 0.1);
-}
-
-
-/* =========================
-   SECTION HEADER
-   ========================= */
-
-.section-title {
-    display: flex;
-
-    align-items: center;
-
-    justify-content: space-between;
-
-    margin-bottom: 14px;
-}
-
-.section-title h2 {
-    margin: 0;
-
-    color: #14213d;
-
-    font-size: 20px;
-}
-
-.section-title p {
-    margin: 5px 0 0;
-
-    color: #64748b;
-
-    font-size: 13px;
-}
-
-.request-count {
-    padding: 7px 11px;
-
-    border-radius: 8px;
-
-    background: #eef4ff;
-
-    color: #2563eb;
-
-    font-size: 11px;
-
-    font-weight: 700;
-}
-
-
-/* =========================
-   REQUEST CARD
-   ========================= */
-
-.requests-list {
-    display: flex;
-
-    flex-direction: column;
-
-    gap: 14px;
-}
-
-.request-card {
-    display: grid;
-
-    grid-template-columns:
-        1.4fr
-        1.8fr
-        1.2fr
-        1fr;
-
-    gap: 20px;
-
-    align-items: center;
-
-    padding: 20px;
-
-    background: white;
-
-    border: 1px solid #e5eaf2;
-
-    border-radius: 16px;
-
-    box-shadow:
-        0 4px 14px
-        rgba(15, 23, 42, 0.03);
-}
-
-
-/* =========================
-   PERSON
-   ========================= */
-
-.person-section {
-    display: flex;
-
-    align-items: center;
-
-    gap: 12px;
-}
-
-.avatar {
-    width: 46px;
-    height: 46px;
-
-    flex-shrink: 0;
-
-    display: flex;
-
-    align-items: center;
-    justify-content: center;
-
-    border-radius: 50%;
-
-    background: #e8f0ff;
-
-    color: #2563eb;
-
-    font-size: 18px;
-
-    font-weight: 700;
-}
-
-.person-info h3 {
-    margin: 0;
-
-    color: #14213d;
-
-    font-size: 14px;
-}
-
-.person-info p {
-    margin: 4px 0;
-
-    color: #64748b;
-
-    font-size: 11px;
-}
-
-.department {
-    color: #475569;
-
-    font-size: 11px;
-
-    font-weight: 600;
-}
-
-
-/* =========================
-   LEAVE DETAILS
-   ========================= */
-
-.leave-details {
-    display: grid;
-
-    grid-template-columns:
-        repeat(2, 1fr);
-
-    gap: 10px;
-}
-
-.detail span,
-.reason span {
-    display: block;
-
-    margin-bottom: 4px;
-
-    color: #94a3b8;
-
-    font-size: 10px;
-
-    font-weight: 600;
-}
-
-.detail strong {
-    color: #334155;
-
-    font-size: 11px;
-}
-
-
-/* =========================
-   REASON
-   ========================= */
-
-.reason {
-    padding: 12px;
-
-    border-radius: 10px;
-
-    background: #f8fafc;
-}
-
-.reason p {
-    margin: 0;
-
-    color: #475569;
-
-    font-size: 11px;
-
-    line-height: 1.5;
-}
-
-
-/* =========================
-   ACTION
-   ========================= */
-
-.request-action {
-    display: flex;
-
-    flex-direction: column;
-
-    align-items: flex-end;
-
-    gap: 10px;
-}
-
-.status {
-    padding: 6px 10px;
-
-    border-radius: 8px;
-
-    font-size: 10px;
-
-    font-weight: 700;
-}
-
-.status-pending {
-    background: #fff7ed;
-
-    color: #ea580c;
-}
-
-.status-approved {
-    background: #f0fdf4;
-
-    color: #16a34a;
-}
-
-.status-rejected {
-    background: #fef2f2;
-
-    color: #dc2626;
-}
-
-.action-buttons {
-    display: flex;
-
-    gap: 7px;
-}
-
-.action-buttons button {
-    height: 34px;
-
-    padding: 0 11px;
-
-    border-radius: 8px;
-
-    font-size: 11px;
-
-    font-weight: 600;
-
-    cursor: pointer;
-}
-
-.approve {
-    border: 1px solid #bbf7d0;
-
-    background: #f0fdf4;
-
-    color: #16a34a;
-}
-
-.approve:hover {
-    background: #dcfce7;
-}
-
-.reject {
-    border: 1px solid #fecaca;
-
-    background: #fef2f2;
-
-    color: #dc2626;
-}
-
-.reject:hover {
-    background: #fee2e2;
-}
-
-.processed {
-    color: #94a3b8;
-
-    font-size: 10px;
-}
-
-
-/* =========================
-   EMPTY STATE
-   ========================= */
-
-.empty-state {
-    padding: 50px 20px;
-
-    text-align: center;
-
-    background: white;
-
-    border: 1px solid #e5eaf2;
-
-    border-radius: 16px;
-}
-
-.empty-icon {
-    width: 48px;
-    height: 48px;
-
-    margin: 0 auto 12px;
-
-    display: flex;
-
-    align-items: center;
-    justify-content: center;
-
-    border-radius: 50%;
-
-    background: #f0fdf4;
-
-    color: #16a34a;
-
-    font-size: 20px;
-
-    font-weight: 700;
-}
-
-.empty-state h3 {
-    margin: 0;
-
-    color: #14213d;
-
-    font-size: 16px;
-}
-
-.empty-state p {
-    margin: 6px 0 0;
-
-    color: #64748b;
-
-    font-size: 12px;
-}
-
-
-/* =========================
-   RESPONSIVE
-   ========================= */
-
-@media (max-width: 1100px) {
-
-    .request-card {
-        grid-template-columns:
-            1fr
-            1fr;
-    }
-
-    .request-action {
-        align-items: flex-start;
-    }
-
-}
-
-
-@media (max-width: 700px) {
-
-    .leave-page {
-        padding: 20px;
-    }
-
-    .summary-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .filter-card {
-        flex-direction: column;
-    }
-
-    .filter-field {
-        width: 100%;
-    }
-
-    .request-card {
-        grid-template-columns: 1fr;
-    }
-
-    .leave-details {
-        grid-template-columns:
-            repeat(2, 1fr);
-    }
-
-}
-
-
-@media (max-width: 450px) {
-
-    .leave-details {
-        grid-template-columns: 1fr;
-    }
-
-    .action-buttons {
-        flex-direction: column;
-
-        width: 100%;
-    }
-
-    .action-buttons button {
-        width: 100%;
-    }
-
-}
-
+<style>
+	.leave-page {
+		min-height: 100vh;
+		padding: 36px;
+		box-sizing: border-box;
+		background: #f8fafc;
+	}
+
+	.page-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 20px;
+		margin-bottom: 24px;
+	}
+
+	.title-section {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+	}
+
+	.title-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 50px;
+		height: 50px;
+		color: #2563eb;
+		background: #eff6ff;
+		border-radius: 13px;
+	}
+
+	.sparkle-icon {
+		color: #7c3aed;
+		background: #f5f3ff;
+	}
+
+	.page-header h1 {
+		margin: 0;
+		color: #0f172a;
+		font-size: 28px;
+		font-weight: 800;
+	}
+
+	.page-header p {
+		margin: 5px 0 0;
+		color: #64748b;
+		font-size: 13px;
+	}
+
+	.refresh-btn {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 10px 16px;
+		border: 1px solid #e2e8f0;
+		border-radius: 10px;
+		background: white;
+		color: #334155;
+		font-size: 13px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.error-box {
+		padding: 12px 16px;
+		margin-bottom: 16px;
+		background: #fef2f2;
+		border: 1px solid #fecaca;
+		border-radius: 10px;
+		color: #b91c1c;
+		font-size: 13px;
+	}
+
+	.success-box {
+		padding: 12px 16px;
+		margin-bottom: 16px;
+		background: #f0fdf4;
+		border: 1px solid #bbf7d0;
+		border-radius: 10px;
+		color: #15803d;
+		font-size: 13px;
+	}
+
+	.summary-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 16px;
+		margin-bottom: 20px;
+	}
+
+	.summary-card {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		padding: 20px;
+		background: white;
+		border: 1px solid #e2e8f0;
+		border-radius: 15px;
+	}
+
+	.summary-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 44px;
+		height: 44px;
+		border-radius: 11px;
+		flex-shrink: 0;
+	}
+
+	.pending-icon {
+		color: #d97706;
+		background: #fffbeb;
+	}
+
+	.approved-icon {
+		color: #16a34a;
+		background: #f0fdf4;
+	}
+
+	.rejected-icon {
+		color: #dc2626;
+		background: #fef2f2;
+	}
+
+	.summary-card span {
+		display: block;
+		margin-bottom: 5px;
+		color: #64748b;
+		font-size: 11px;
+	}
+
+	.summary-card strong {
+		color: #0f172a;
+		font-size: 22px;
+		font-weight: 800;
+	}
+
+	.card {
+		padding: 24px;
+		background: white;
+		border: 1px solid #e2e8f0;
+		border-radius: 16px;
+		margin-bottom: 20px;
+	}
+
+	.card h2 {
+		margin: 0 0 16px;
+		color: #0f172a;
+		font-size: 17px;
+		font-weight: 700;
+	}
+
+	.suggestions-card {
+		border-color: #ddd6fe;
+		background: #fafaff;
+	}
+
+	.suggestions-header {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 15px;
+		margin-bottom: 16px;
+	}
+
+	.close-btn {
+		width: 32px;
+		height: 32px;
+		border: 1px solid #e2e8f0;
+		border-radius: 8px;
+		background: white;
+		color: #64748b;
+		font-size: 20px;
+		line-height: 1;
+		cursor: pointer;
+		flex-shrink: 0;
+	}
+
+	.leave-list,
+	.suggestion-list {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	.leave-item {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		padding: 14px;
+		border: 1px solid #e2e8f0;
+		border-radius: 12px;
+		background: #f8fafc;
+		flex-wrap: wrap;
+	}
+
+	.leave-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 42px;
+		height: 42px;
+		border-radius: 10px;
+		color: #2563eb;
+		background: #eff6ff;
+		flex-shrink: 0;
+	}
+
+	.leave-info {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+		min-width: 0;
+	}
+
+	.leave-info strong {
+		color: #0f172a;
+		font-size: 14px;
+	}
+
+	.leave-info span {
+		color: #64748b;
+		font-size: 12px;
+	}
+
+	.reason {
+		color: #334155 !important;
+	}
+
+	.applied {
+		color: #94a3b8 !important;
+	}
+
+	.status-badge {
+		padding: 5px 10px;
+		border-radius: 20px;
+		font-size: 11px;
+		font-weight: 700;
+	}
+
+	.status-pending {
+		background: #fef3c7;
+		color: #b45309;
+	}
+
+	.status-approved {
+		background: #dcfce7;
+		color: #15803d;
+	}
+
+	.status-rejected {
+		background: #fee2e2;
+		color: #b91c1c;
+	}
+
+	.actions {
+		display: flex;
+		gap: 8px;
+		flex-shrink: 0;
+		flex-wrap: wrap;
+	}
+
+	.approve-btn,
+	.reject-btn,
+	.suggest-btn,
+	.confirm-btn {
+		display: flex;
+		align-items: center;
+		gap: 5px;
+		padding: 8px 12px;
+		border-radius: 9px;
+		font-size: 12px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.approve-btn {
+		border: none;
+		background: #16a34a;
+		color: white;
+	}
+
+	.reject-btn {
+		border: 1px solid #fecaca;
+		background: white;
+		color: #dc2626;
+	}
+
+	.suggest-btn {
+		border: 1px solid #ddd6fe;
+		background: white;
+		color: #7c3aed;
+	}
+
+	.suggestion-item {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		padding: 14px;
+		border: 1px solid #e2e8f0;
+		border-radius: 12px;
+		background: white;
+	}
+
+	.suggestion-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 42px;
+		height: 42px;
+		border-radius: 10px;
+		color: #7c3aed;
+		background: #f5f3ff;
+		flex-shrink: 0;
+	}
+
+	.suggestion-info {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+		min-width: 0;
+	}
+
+	.suggestion-info strong {
+		color: #0f172a;
+		font-size: 14px;
+	}
+
+	.suggestion-info span {
+		color: #64748b;
+		font-size: 12px;
+	}
+
+	.confirm-btn {
+		border: none;
+		background: #7c3aed;
+		color: white;
+		flex-shrink: 0;
+	}
+
+	.empty {
+		color: #94a3b8;
+		font-size: 13px;
+		text-align: center;
+		padding: 24px 0;
+	}
+
+	@media (max-width: 900px) {
+		.leave-page {
+			padding: 18px;
+		}
+
+		.summary-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.actions {
+			width: 100%;
+		}
+	}
 </style>

@@ -1,7 +1,10 @@
 import json
 from uuid import UUID
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from app.core.security import decode_access_token
 
 from app.services.document_service import (
     extract_document,
@@ -13,6 +16,14 @@ router = APIRouter(
     prefix="/api/documents",
     tags=["Documents"],
 )
+security = HTTPBearer()
+
+
+def require_authenticated_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    user = decode_access_token(credentials.credentials)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid or expired authentication token.")
+    return user
 
 
 # ============================================================
@@ -22,6 +33,7 @@ router = APIRouter(
 @router.post("/extract")
 async def extract_document_api(
     file: UploadFile = File(...),
+    current_user: dict = Depends(require_authenticated_user),
 ):
     try:
         file_bytes = await file.read()
@@ -80,6 +92,7 @@ async def save_document(
     confidence: float | None = Form(default=None),
     uploaded_by: UUID | None = Form(default=None),
     reviewed_by: UUID | None = Form(default=None),
+    current_user: dict = Depends(require_authenticated_user),
 ):
     try:
         # ----------------------------------------------------

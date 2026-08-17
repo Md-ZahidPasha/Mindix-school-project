@@ -11,6 +11,7 @@
 		{ label: 'Teacher / Employee Leave', icon: '▢' },
 		{ label: 'Library', icon: '▥' },
 		{ label: 'Certificates', icon: '▤' },
+		{ label: 'AI Document Reader', icon: '⌾' },
 		{ label: 'Notifications', icon: '♢' },
 		{ label: 'Reports', icon: '▥' }
 	];
@@ -51,7 +52,11 @@
         								? '/principal-dashboard/notifications'
 										: item.label === 'Reports'
 											? '/principal-dashboard/reports'
-											: '/principal-dashboard'
+											: item.label === 'Smart Timetable'
+											? '/timetable'
+											: item.label === 'AI Document Reader'
+												? '/principal-dashboard/documents'
+												: '/principal-dashboard'
 		}
 		class:active={item.active}
 		class="nav-item"

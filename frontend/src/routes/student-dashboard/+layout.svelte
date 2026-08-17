@@ -12,7 +12,7 @@
         Bell,
         LogOut
     } from '@lucide/svelte';
-    import { Bot } from 'lucide-svelte';
+    import { Bot } from '@lucide/svelte';
 
     let { children } = $props();
 

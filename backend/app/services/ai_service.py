@@ -1,13 +1,15 @@
 import os
+import time
 
 from google import genai
 
 from app.core.config import settings
 
 
-client = genai.Client(
-    api_key=settings.GEMINI_API_KEY
-)
+def _get_client():
+    if not settings.GEMINI_API_KEY:
+        raise RuntimeError("GEMINI_API_KEY is not configured. Add it to the backend environment.")
+    return genai.Client(api_key=settings.GEMINI_API_KEY, http_options={"timeout": 30000})
 
 
 def generate_ai_response(
@@ -94,12 +96,23 @@ The user's question is:
 {message}
 """
 
-    response = client.models.generate_content(
-        model="gemini-3.6-flash",
-        contents=system_prompt,
-        config={
-            "response_mime_type": "text/plain",
-        },
-    )
-
-    return response.text or "I could not generate a response."
+    client = _get_client()
+    last_error = None
+    for attempt in range(2):
+        try:
+            response = client.models.generate_content(
+                model=settings.GEMINI_MODEL,
+                contents=system_prompt,
+                config={
+                    "response_mime_type": "text/plain",
+                },
+            )
+            return response.text or "I could not generate a response."
+        except Exception as error:
+            last_error = error
+            message = str(error)
+            if "429" in message or "503" in message or "UNAVAILABLE" in message or "RESOURCE_EXHAUSTED" in message:
+                time.sleep(1.0)
+                continue
+            raise
+    raise last_error

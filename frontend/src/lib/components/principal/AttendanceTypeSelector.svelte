@@ -3,10 +3,11 @@
         Users,
         GraduationCap,
         BriefcaseBusiness,
+        QrCode,
         Check
     } from '@lucide/svelte';
 
-    type AttendanceType = 'students' | 'teachers' | 'employees';
+    type AttendanceType = 'students' | 'teachers' | 'employees' | 'qr';
 
     let {
         selectedType = $bindable<AttendanceType>()
@@ -89,6 +90,30 @@
 
     </button>
 
+
+    <!-- QR / STUDENT ID -->
+
+    <button
+        type="button"
+        class:active={selectedType === 'qr'}
+        class="type-card"
+        onclick={() => selectedType = 'qr'}
+    >
+
+        <div class="icon-box">
+            <QrCode size={20} />
+        </div>
+
+        <span>QR / Student-ID</span>
+
+        {#if selectedType === 'qr'}
+            <div class="check">
+                <Check size={15} />
+            </div>
+        {/if}
+
+    </button>
+
 </div>
 
 
@@ -98,7 +123,7 @@
     display: grid;
 
     grid-template-columns:
-        repeat(3, 1fr);
+        repeat(4, 1fr);
 
     gap: 16px;
 

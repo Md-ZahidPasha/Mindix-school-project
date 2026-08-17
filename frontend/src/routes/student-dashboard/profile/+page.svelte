@@ -1,5 +1,6 @@
 <script lang="ts">
     import { getProfile } from '$lib/services/studentApi';
+    import StudentIdCard from '$lib/components/principal/StudentIdCard.svelte';
     import {
         UserCircle,
         Mail,
@@ -152,6 +153,15 @@
                 </div>
             </div>
         </section>
+
+        <StudentIdCard
+            code={profileData.student_id || profileData.roll_number || 'STUDENT'}
+            name={profileData.name}
+            rollNumber={profileData.roll_number}
+            className={profileData.class}
+            section={profileData.section}
+            institutionName="Student ID Card"
+        />
     {:else}
         <div class="state-card">
             <p>No profile information available.</p>

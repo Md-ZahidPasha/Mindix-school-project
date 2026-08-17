@@ -1,122 +1,84 @@
-const API_BASE_URL = 'http://localhost:5000/api';
+import { API } from '$lib/config/api';
+import { apiFetch } from '$lib/services/apiClient';
 
-async function apiRequest(
-    endpoint: string,
-    options: RequestInit = {}
-) {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...(options.headers || {})
-        },
-        credentials: 'include'
-    });
+const base = `${API.baseUrl}/api/students`;
 
-    if (!response.ok) {
-        throw new Error(
-            `API request failed: ${response.status} ${response.statusText}`
-        );
-    }
-
-    return response.json();
+interface StudentAttendance {
+	percentage: number;
+	present: number;
+	absent: number;
+	late: number;
+	upcoming: number;
+	pending: number;
 }
 
+interface DashboardTimetable {
+	slots: {
+		day?: string | null;
+		period: number;
+		subject: string;
+		teacher: string;
+		room?: string | null;
+	}[];
+}
+
+export interface StudentDashboard {
+	student: {
+		name: string;
+		class: string | null;
+		section: string | null;
+		roll_number: string;
+		student_id: string;
+	};
+	attendance: StudentAttendance;
+	timetable: DashboardTimetable;
+}
+
+export interface StudentProfile {
+	student_id: string;
+	full_name: string | null;
+	email: string | null;
+	phone: string | null;
+	roll_number: string;
+	admission_number: string | null;
+	date_of_birth: string | null;
+	gender: string | null;
+	class_id: string | null;
+	class_name: string | null;
+	section: string | null;
+	institution_id: string | null;
+}
 
 /* ================================
    STUDENT DASHBOARD
 ================================ */
 
-export async function getDashboard() {
-    return apiRequest('/students/dashboard');
+export async function getDashboard(): Promise<StudentDashboard> {
+	return apiFetch<StudentDashboard>(`${base}/dashboard`);
 }
-
 
 /* ================================
    STUDENT PROFILE
 ================================ */
 
-export async function getProfile() {
-    return apiRequest('/students/me');
+export async function getProfile(): Promise<StudentProfile> {
+	return apiFetch<StudentProfile>(`${base}/me`);
 }
-
 
 /* ================================
    ATTENDANCE
 ================================ */
 
-export async function getAttendance() {
-    return apiRequest('/students/attendance');
+export async function getAttendance(): Promise<StudentAttendance> {
+	const dashboard = await getDashboard();
+	return dashboard.attendance;
 }
-
 
 /* ================================
    TIMETABLE
 ================================ */
 
-export async function getTimetable() {
-    return apiRequest('/students/timetable');
-}
-
-
-/* ================================
-   ASSIGNMENTS
-================================ */
-
-export async function getAssignments() {
-    return apiRequest('/students/assignments');
-}
-
-
-/* ================================
-   EXAMS
-================================ */
-
-export async function getExams() {
-    return apiRequest('/students/exams');
-}
-
-
-/* ================================
-   RESULTS
-================================ */
-
-export async function getResults() {
-    return apiRequest('/students/results');
-}
-
-
-/* ================================
-   FEES
-================================ */
-
-export async function getFees() {
-    return apiRequest('/students/fees');
-}
-
-
-/* ================================
-   CERTIFICATES
-================================ */
-
-export async function getCertificates() {
-    return apiRequest('/students/certificates');
-}
-
-
-/* ================================
-   LIBRARY
-================================ */
-
-export async function getLibrary() {
-    return apiRequest('/students/library');
-}
-
-
-/* ================================
-   NOTIFICATIONS
-================================ */
-
-export async function getNotifications() {
-    return apiRequest('/students/notifications');
+export async function getTimetable(): Promise<DashboardTimetable> {
+	const dashboard = await getDashboard();
+	return dashboard.timetable;
 }
