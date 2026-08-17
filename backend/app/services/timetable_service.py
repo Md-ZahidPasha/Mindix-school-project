@@ -1,10 +1,14 @@
 from ortools.sat.python import cp_model
 
-from app.schemas.timetable import TimetableGenerateRequest, TimetableSlotResponse
+from app.schemas.timetable import (
+    TimetableGenerateRequest,
+    TimetableSlotResponse,
+    TimetableLesson,
+)
 
 
 def solve_timetable(
-    lessons: list[TimetableGenerateRequest.__annotations__["lessons"][0]],
+    lessons: list[TimetableLesson],
     working_days: list[str],
     periods_per_day: int,
 ) -> list[TimetableSlotResponse]:
